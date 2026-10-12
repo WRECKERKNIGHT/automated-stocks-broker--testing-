@@ -1,0 +1,28 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Secrets / local config
+.env
+
+# Runtime data
+data/
+logs/
+*.log
+*.db
+
+# Desktop app profile
+.appdata/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
