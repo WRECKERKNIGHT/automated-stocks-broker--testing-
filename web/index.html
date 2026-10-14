@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en" data-tone="flat">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AI Trader</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%230a0c10'/%3E%3Cpath d='M3 11l3-4 2 2 4-6' stroke='%230ecb81' stroke-width='1.6' fill='none'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="/static/styles.css?v=10" />
+<script src="/static/vendor/lightweight-charts.standalone.production.js?v=1"></script>
+</head>
+<body>
+<header id="topbar">
+  <div class="brand">AI&nbsp;TRADER <span id="modeBadge" class="badge">--</span> <span id="simBadge" class="badge sim" style="display:none" title="Synthetic tick data is active in a real-key session">⚠ SIM DATA</span></div>
+  <div class="stats">
+    <div class="stat"><label>Equity</label><b id="equity">--</b></div>
+    <div class="stat"><label>Day</label><b id="daypnl">--</b></div>
+    <div class="stat"><label>BP</label><b id="bp">--</b></div>
+    <div class="stat"><label>Pos</label><b id="npos">0</b></div>
+    <div class="stat"><label>Mkt</label><b id="mkt">--</b></div>
+    <div class="stat"><label>Universe</label><b id="uni">--</b></div>
+    <div class="stat"><label>LLM</label><b id="llmState">--</b></div>
+  </div>
+  <div class="controls">
+    <span id="connState" class="pill muted">connecting…</span>
+    <button id="botToggle" class="btn primary">Start Bot</button>
+    <span id="botState" class="pill">stopped</span>
+    <input id="scanInterval" class="mini" type="number" min="5" value="30" title="scan interval (sec)" />
+    <input id="watchlist" class="wl" title="watchlist (comma separated)" />
+    <button id="applyCfg" class="btn">Apply</button>
+  </div>
+</header>
+
+<div class="ticker">
+  <span class="tlabel">LIVE</span>
+  <div class="titems" id="tickerItems"></div>
+</div>
+
+<div id="mktBanner" class="mktbanner hidden">
+  <span class="mktdot"></span>
+  <b id="mktBannerTitle">MARKET CLOSED</b>
+  <span id="mktBannerText" class="muted"></span>
+</div>
+
+<div class="app">
+  <nav class="rail" id="rail">
+    <button class="railbtn active" data-sec="reasoning">Terminal</button>
+    <button class="railbtn" data-sec="scanner">Scanner</button>
+    <button class="railbtn" data-sec="research">Research</button>
+    <button class="railbtn" data-sec="ideas">Ideas</button>
+    <button class="railbtn" data-sec="portfolio">Portfolio</button>
+    <button class="railbtn" data-sec="journal">Journal</button>
+    <button class="railbtn" data-sec="alerts">Alerts</button>
+    <button class="railbtn" data-sec="coach">Coach</button>
+    <button class="railbtn" data-sec="library">Library</button>
+    <button class="railbtn" data-sec="pulse">Pulse</button>
+    <div class="railsep"></div>
+    <button class="railbtn" data-sec="equity">Equity</button>
+    <button class="railbtn" data-sec="trades">Trades</button>
+    <button class="railbtn" data-sec="daily">Daily</button>
+    <button class="railbtn" data-sec="mind">Mind</button>
+    <button class="railbtn" data-sec="today">Today</button>
+    <div class="railsep"></div>
+    <button class="railbtn" data-sec="backtest">Backtest</button>
+    <button class="railbtn" data-sec="wfo">Optimize</button>
+    <button class="railbtn" data-sec="depth">Depth</button>
+  </nav>
+
+  <div class="center">
+    <section class="chartCol">
+      <div class="chartToolbar">
+        <input id="symbolInput" class="syminput" value="AAPL" />
+        <button id="chartResearch" class="tf" title="research this symbol">🔎</button>
+        <button id="chartFocus" class="tf" title="focus chart (hide panels)">⤢ focus</button>
+        <button id="chartFollow" class="tf active" title="chart follows the bot's active trade">◎ follow</button>
+        <div class="tfs">
+          <button data-tf="1Min" class="tf">1m</button>
+          <button data-tf="5Min" class="tf active">5m</button>
+          <button data-tf="15Min" class="tf">15m</button>
+          <button data-tf="1Hour" class="tf">1H</button>
+          <button data-tf="1Day" class="tf">1D</button>
+        </div>
+        <span id="chartPrice" class="chartprice"></span>
+      </div>
+      <div class="chartWrap">
+        <div id="chart"></div>
+        <canvas id="vpCanvas" class="vp"></canvas>
+        <div id="chartLegend" class="legend"></div>
+        <div id="chartClosed" class="chartclosed hidden">
+          <div class="cc-card">
+            <span class="mktdot"></span>
+            <div class="cc-title">Market closed</div>
+            <div id="chartClosedText" class="cc-text muted">Showing last session</div>
+          </div>
+        </div>
+      </div>
+      <div id="signalBar" class="signals"></div>
+    </section>
+
+    <section class="dock">
+      <div class="dockgrip" id="dockGrip" title="drag to resize"></div>
+      <div class="dockHead">
+        <span id="dockTitle">Terminal</span>
+        <span id="dockMeta" class="muted small"></span>
+        <span class="spacer"></span>
+        <button id="dockMin" class="dockmin" title="collapse / expand workspace">▾</button>
+      </div>
+      <div class="dockBody" id="dockBody">
+        <div class="panel" id="tab-reasoning"></div>
+        <div class="panel hidden" id="tab-scanner"><div id="scannerBar"></div><div id="scannerBody"></div></div>
+        <div class="panel hidden" id="tab-research"><div id="researchBar"></div><div id="researchBody"></div></div>
+        <div class="panel hidden" id="tab-ideas"><div id="ideasBody"></div></div>
+        <div class="panel hidden" id="tab-portfolio"><div id="portfolioBody"></div></div>
+        <div class="panel hidden" id="tab-journal"><div id="journalBar"></div><div id="journalBody"></div></div>
+        <div class="panel hidden" id="tab-alerts"><div id="alertsBar"></div><div id="alertsBody"></div></div>
+        <div class="panel hidden" id="tab-coach"><div id="coachBody"></div></div>
+        <div class="panel hidden" id="tab-library"><div id="libraryBar"></div><div id="libraryBody"></div></div>
+        <div class="panel hidden" id="tab-pulse"><div id="pulseBody"></div></div>
+        <div class="panel hidden" id="tab-equity"><div id="equityChart"></div></div>
+        <div class="panel hidden" id="tab-trades"></div>
+        <div class="panel hidden" id="tab-daily"></div>
+        <div class="panel hidden" id="tab-mind"></div>
+        <div class="panel hidden" id="tab-today"></div>
+        <div class="panel hidden" id="tab-backtest">
+          <div class="btform">
+            <input id="btSymbol" value="AAPL" class="syminput" />
+            <select id="btTf">
+              <option>1Min</option><option selected>5Min</option><option>15Min</option><option>1Hour</option>
+            </select>
+            <input id="btLimit" type="number" value="600" class="mini" title="bars" />
+            <label class="fld">RR <input id="btRr" type="number" step="0.5" value="2" class="mini" /></label>
+            <label class="fld">ATR× <input id="btAtr" type="number" step="0.5" value="1.5" class="mini" /></label>
+            <label class="fld">MinConf <input id="btConf" type="number" step="0.05" value="0.55" class="mini" /></label>
+            <button id="btRun" class="btn primary">Run Backtest</button>
+            <span id="btStatus" class="muted"></span>
+          </div>
+          <div id="btResult"></div>
+        </div>
+        <div class="panel hidden" id="tab-wfo">
+          <div class="btform">
+            <input id="wfoSymbol" value="NVDA" class="syminput" />
+            <select id="wfoTf">
+              <option>1Min</option><option selected>5Min</option><option>15Min</option><option>1Hour</option>
+            </select>
+            <input id="wfoLimit" type="number" value="360" class="mini" title="bars" />
+            <input id="wfoStride" type="number" value="14" class="mini" title="stride" />
+            <select id="wfoMethod" title="regime engine">
+              <option value="heuristic">heuristic regime</option>
+              <option value="hybrid" selected>hybrid (HMM) regime</option>
+            </select>
+            <button id="wfoRun" class="btn primary">Run Walk-Forward</button>
+            <span id="wfoStatus" class="muted"></span>
+          </div>
+          <div id="wfoResult"></div>
+          <div style="margin-top:16px">
+            <h3>Saved runs</h3>
+            <div id="wfoRuns"></div>
+          </div>
+        </div>
+        <div class="panel hidden" id="tab-depth">
+          <div class="btform">
+            <input id="depthSymbol" value="AAPL" class="syminput" />
+            <span class="muted small">liquidity heatmap · price (rows) × time (cols) · green = bid depth, red = ask depth</span>
+            <span id="depthMeta" class="muted"></span>
+          </div>
+          <canvas id="depthCanvas" class="depth"></canvas>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <aside class="side">
+    <div class="tabs" data-group="side">
+      <button class="tab active" data-tab="positions">Positions</button>
+      <button class="tab" data-tab="orders">Orders</button>
+      <button class="tab" data-tab="tape">Tape</button>
+      <button class="tab" data-tab="news">News</button>
+      <button class="tab" data-tab="log">Log</button>
+    </div>
+    <div class="panel" id="tab-positions"></div>
+    <div class="panel hidden" id="tab-orders"></div>
+    <div class="panel hidden" id="tab-tape"></div>
+    <div class="panel hidden" id="tab-news"></div>
+    <div class="panel hidden" id="tab-log"></div>
+  </aside>
+</div>
+
+<script src="/static/app.js?v=10"></script>
+<div id="toasts"></div>
+</body>
+</html>
