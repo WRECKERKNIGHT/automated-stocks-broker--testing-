@@ -103,14 +103,14 @@ def toxicity_warning(micro: dict) -> dict | None:
 
 
 def generate(df, regime: str, micro: dict, pools: dict, vol_profile: dict,
-             news_sentiment: float = 0.0) -> list[dict[str, Any]]:
+             news_sentiment: float = 0.0, htf_trend: int = 0) -> list[dict[str, Any]]:
     sigs: list[dict] = []
     for fn, args in (
         (trend_continuation, (df, regime)),
         (value_area_breakout, (df, vol_profile)),
         (momentum_ignition, (df, micro)),
-        (mean_reversion, (df, regime)),
-        (liquidity_sweep, (df, pools)),
+        (mean_reversion, (df, regime, htf_trend)),
+        (liquidity_sweep, (df, pools, regime, htf_trend)),
         (toxicity_warning, (micro,)),
     ):
         s = fn(*args)
