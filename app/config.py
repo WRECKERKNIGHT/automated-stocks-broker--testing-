@@ -67,6 +67,9 @@ class Settings:
     # --- Engine ---
     regime_method: str = field(default_factory=lambda: os.getenv("REGIME_METHOD", "hybrid").strip().lower())
     tape_enabled: bool = field(default_factory=lambda: _b("TAPE_ENABLED", True))
+    # The free IEX market-data feed rejects subscriptions above a hard symbol
+    # limit (405 "symbol limit exceeded"), which silently killed the whole tape.
+    tape_max_symbols: int = field(default_factory=lambda: _i("TAPE_MAX_SYMBOLS", 30))
 
     # --- Multi-timeframe confirmation ---
     mtf_enabled: bool = field(default_factory=lambda: _b("MTF_ENABLED", True))
