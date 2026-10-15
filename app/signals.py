@@ -55,31 +55,40 @@ def momentum_ignition(df, micro: dict) -> dict | None:
     return None
 
 
-def mean_reversion(df, regime: str) -> dict | None:
+def mean_reversion(df, regime: str, htf_trend: int = 0) -> dict | None:
     if regime not in ("RANGE",):
         return None
     c = _row(df, "close")
     rsi = _row(df, "rsi", 50)
     dn, up = _row(df, "bb_dn"), _row(df, "bb_up")
-    if rsi <= 30 and c <= dn:
+    # Never fade into a higher-timeframe trend - the "mean" has moved.
+    if rsi <= 28 and c <= dn and htf_trend >= 0:
         return {"name": "mean_reversion_long", "dir": 1, "weight": 0.7,
                 "reason": f"Oversold in range: RSI {rsi:.0f}, at/below lower band"}
-    if rsi >= 70 and c >= up:
+    if rsi >= 72 and c >= up and htf_trend <= 0:
         return {"name": "mean_reversion_short", "dir": -1, "weight": 0.7,
                 "reason": f"Overbought in range: RSI {rsi:.0f}, at/above upper band"}
     return None
 
 
-def liquidity_sweep(df, pools: dict) -> dict | None:
-    """Stop-hunt reversal: swept a support pool then closed back above it."""
+def liquidity_sweep(df, pools: dict, regime: str = "RANGE", htf_trend: int = 0) -> dict | None:
+    """Stop-hunt reversal: swept a support pool then closed back above it.
+
+    Refuses to fade a trend: a reclaim is not bought when it is a knife-catch
+    against a down-trend, and a rejection is not shorted into an up-trend. This
+    signal is the usual culprit behind "bought the top of the pullback / sold the
+    bottom of the rip".
+    """
     c = _row(df, "close")
     low = _row(df, "low", c)
     sup = pools.get("support_pool")
     res = pools.get("resistance_pool")
-    if sup and low < sup and c > sup:
+    fade_down = regime == "TREND_DOWN" or htf_trend < 0
+    fade_up = regime == "TREND_UP" or htf_trend > 0
+    if sup and low < sup and c > sup and not fade_down:
         return {"name": "sweep_reclaim_long", "dir": 1, "weight": 0.75,
                 "reason": f"Swept liquidity below {sup:.2f} then reclaimed - stop-hunt reversal"}
-    if res and _row(df, "high", c) > res and c < res:
+    if res and _row(df, "high", c) > res and c < res and not fade_up:
         return {"name": "sweep_reject_short", "dir": -1, "weight": 0.75,
                 "reason": f"Swept liquidity above {res:.2f} then rejected - stop-hunt reversal"}
     return None
