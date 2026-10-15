@@ -173,9 +173,9 @@ def atr_stops(price: float, atr_val: float, direction: int, rr: float = 2.0, atr
 
 
 def structural_stops(price: float, atr_val: float, direction: int, rr: float = 2.0,
-                     atr_mult: float = 2.0, min_stop_pct: float = 0.006,
-                     max_stop_pct: float = 0.03, swing: float | None = None,
-                     buffer_atr: float = 0.5, atr_floor_mult: float = 1.2) -> dict:
+                     atr_mult: float = 3.0, min_stop_pct: float = 0.02,
+                     max_stop_pct: float = 0.08, swing: float | None = None,
+                     buffer_atr: float = 0.75, atr_floor_mult: float = 2.0) -> dict:
     """Stop/target placed where the trade is *wrong*, not at a blind ATR distance.
 
     - If `swing` (recent swing low for longs / swing high for shorts) is given,
