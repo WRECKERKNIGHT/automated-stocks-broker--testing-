@@ -70,6 +70,9 @@ class RiskLimits:
     # Trade a *portfolio*, not one idea: hold more names so a single stop can't
     # dominate the day and so the law of large numbers can actually work.
     max_open_positions: int = 12
+    # Never become a one-way index bet: cap how many names may be held on the
+    # same side so a single macro move can't stop out the whole book at once.
+    max_positions_per_side: int = 6
     max_gross_exposure_pct: float = 1.0
     daily_loss_limit_pct: float = 0.03
     max_trades_per_day: int = 40
@@ -77,13 +80,15 @@ class RiskLimits:
     rr: float = 2.0
     # Wider structural stop (structure + >=1xATR floor). The tighter the stop the
     # more often ordinary noise tags a correct trade; we size down instead.
-    atr_mult: float = 2.0
+    # atr_mult is only the fallback when no swing is available; the swing buffer
+    # and the min/max stop band do most of the work.
+    atr_mult: float = 3.0
     # volatility dampener ("humility"): shrink size as ATR% runs hot, hard-stop if extreme
     atr_pct_hot: float = 2.5
     atr_pct_extreme: float = 4.5
     vol_dampen: float = 0.5
     # trailing stop: give the runner room (let winners run), engage later
-    trail_mult: float = 2.5
+    trail_mult: float = 3.0
     trail_after_r: float = 1.5
 
 
