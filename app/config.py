@@ -139,11 +139,35 @@ class Settings:
     elite_market_veto: bool = field(default_factory=lambda: _b("ELITE_MARKET_VETO", False))
 
     # --- Flexible (human-style) stop management ---
-    stop_grace_min: int = field(default_factory=lambda: _i("STOP_GRACE_MIN", 8))
-    disaster_stop_pct: float = field(default_factory=lambda: _f("DISASTER_STOP_PCT", 0.008))
+    # Patience first: give a fresh trade a lot of room and only exit when the
+    # trade is genuinely *wrong* (wide disaster backstop), never on ordinary
+    # noise. The old 0.8% disaster stop was inside the daily noise band and is
+    # exactly what turned good ideas into a thousand small cuts.
+    stop_grace_min: int = field(default_factory=lambda: _i("STOP_GRACE_MIN", 45))
+    disaster_stop_pct: float = field(default_factory=lambda: _f("DISASTER_STOP_PCT", 0.035))
     max_hold_min: int = field(default_factory=lambda: _i("MAX_HOLD_MIN", 360))
+    # Patience: a trade is held until its thesis breaks (structural stop / EOD),
+    # NOT until a clock says so. The time-stop is therefore off by default and,
+    # when enabled, only reclaims capital from a trade that never worked at all.
+    time_stop_enabled: bool = field(default_factory=lambda: _b("TIME_STOP_ENABLED", False))
     revenge_cooldown_min: int = field(default_factory=lambda: _i("REVENGE_COOLDOWN_MIN", 45))
-    stop_grace_mult: float = field(default_factory=lambda: _f("STOP_GRACE_MULT", 1.4))
+    stop_grace_mult: float = field(default_factory=lambda: _f("STOP_GRACE_MULT", 1.6))
+
+    # --- Patience / let-it-run profit management ---
+    # Hold until it goes up: protect the trade only after it has paid a full R,
+    # never trim a winner by default (set SCALE_OUT_R>0 to bank a tranche), and
+    # let the runner trail. Options flatten by the close (day-trading, no gap risk).
+    breakeven_r: float = field(default_factory=lambda: _f("BREAKEVEN_R", 1.5))
+    scale_out_r: float = field(default_factory=lambda: _f("SCALE_OUT_R", 0.0))
+    scale_out_frac: float = field(default_factory=lambda: _f("SCALE_OUT_FRAC", 0.25))
+    flatten_at_eod: bool = field(default_factory=lambda: _b("FLATTEN_AT_EOD", True))
+
+    # --- Signal quality: require confluence, refuse to fade a trend ---
+    min_confluence: int = field(default_factory=lambda: _i("MIN_CONFLUENCE", 2))
+    antifade_enabled: bool = field(default_factory=lambda: _b("ANTIFADE_ENABLED", True))
+
+    # --- Portfolio heat guard (sum of open $ risk) ---
+    max_open_heat_pct: float = field(default_factory=lambda: _f("MAX_OPEN_HEAT_PCT", 0.06))
 
     # --- Market universe / scanner / research ---
     scanner_cache_sec: int = field(default_factory=lambda: _i("SCANNER_CACHE_SEC", 120))
