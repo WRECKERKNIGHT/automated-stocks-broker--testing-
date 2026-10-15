@@ -47,10 +47,14 @@ def position_size(
     risk_dollars = equity * risk_pct
     qty = int(min(risk_dollars // risk_per_share, (equity * max_position_pct) // price))
     if kelly_f is not None:
-        if kelly_f <= 0:
-            qty = 0
-        else:
-            qty = int(qty * min(1.0, max(min_frac, kelly_f / kelly_ref)))
+        # Kelly *scales* the bet between probes size and full size - it must
+        # never silently reduce a valid setup to zero shares. A small or
+        # negative recent-edge sample means "trade small while you rebuild the
+        # edge", not "stop trading forever" (that bug idled the desk all day).
+        # The psychology layer (cooldown / halt) is what stands the desk down.
+        scale = kelly_f / kelly_ref if kelly_ref else 1.0
+        scale = max(min_frac, min(1.0, scale))
+        qty = int(qty * scale)
     return {
         "qty": max(0, qty),
         "risk_per_share": risk_per_share,
