@@ -30,7 +30,7 @@ def analyze(symbol: str, df, news_sentiment: float = 0.0, llm_brief: dict | None
     """
     params = params or {}
     rr = float(params.get("rr", 2.0))
-    atr_mult = float(params.get("atr_mult", 1.5))
+    atr_mult = float(params.get("atr_mult", 3.0))
     regime_method = params.get("regime_method", settings.regime_method)
     if df is None or len(df) < 30:
         return {"symbol": symbol, "action": "HOLD", "confidence": 0.0, "reasons": ["insufficient data"],
@@ -46,10 +46,13 @@ def analyze(symbol: str, df, news_sentiment: float = 0.0, llm_brief: dict | None
     pools = microstructure.liquidity_pools(feat)
     vprof = indicators.volume_profile(feat.tail(120))
 
-    sigs = signals.generate(feat, reg["regime"], micro, pools, vprof, news_sentiment)
+    htf = htf or {}
+    htf_trend = int(htf.get("trend", 0) or 0)
+    sigs = signals.generate(feat, reg["regime"], micro, pools, vprof, news_sentiment,
+                            htf_trend=htf_trend)
 
     # --- HTF breakout as an explicit multi-timeframe entry trigger ---
-    htf_breakout = int((htf or {}).get("breakout", 0))
+    htf_breakout = int(htf.get("breakout", 0))
     if htf_breakout != 0:
         sigs.append({
             "name": "htf_breakout",
