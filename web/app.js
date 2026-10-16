@@ -177,6 +177,14 @@ function applyTips(root) {
   });
 }
 
+/* ---- extra definitions merged into the one place descriptions live ---- */
+Object.assign(TIPS, {
+  "Spread": "The gap between the best bid and best ask - your instant cost to trade.",
+  "Bid": "The highest price a buyer is currently offering.",
+  "Ask": "The lowest price a seller is currently accepting.",
+  "Imbalance": "Order-book imbalance: more buy than sell pressure right now.",
+});
+
 /* surface any client error on the dashboard instead of failing silently */
 window.onerror = (msg, src, line) => {
   pushToast({ level: "error", msg: "JS: " + msg + " @" + (src || "").split("/").pop() + ":" + line });
