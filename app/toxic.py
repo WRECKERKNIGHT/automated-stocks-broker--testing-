@@ -35,6 +35,15 @@ def assess(micro: dict | None, direction: int = 0) -> dict:
     factor = 1.0 if against else 0.35
     adjusted = min(1.0, vpin * factor + 0.4 * abs(divergence))
 
+    # Fail-safe: a *saturated* VPIN means one side has absorbed the whole book -
+    # the classic adverse-selection tape. Even if the raw flow looks like it is
+    # "with us", never let it collapse to CLEAR; hold it at ELEVATED (shrink size,
+    # demand more conviction). This is the guard that stops a mis-computed VPIN
+    # from green-lighting full-size entries into one-sided flow.
+    saturated = vpin >= max(0.9, settings.toxic_vpin_extreme)
+    if saturated:
+        adjusted = max(adjusted, settings.toxic_vpin_high + 0.01)
+
     if adjusted >= settings.toxic_vpin_extreme:
         level, size_mult, require_conf = "TOXIC", 0.0, settings.toxic_conf_penalty * 2
     elif adjusted >= settings.toxic_vpin_high:
