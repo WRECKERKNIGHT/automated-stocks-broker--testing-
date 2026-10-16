@@ -592,3 +592,19 @@ def set_setting(key: str, value: str) -> None:
 
 # ----------------------------- open-position metadata -----------------------------
 
+def save_positions_meta(positions: dict[str, Any], market: str | None = None) -> None:
+    """Persist the bot's in-memory stop/target/thesis map for open positions."""
+    set_setting(f"positions_meta_{market or _market}", json.dumps(positions or {}, default=str))
+
+
+def load_positions_meta(market: str | None = None) -> dict[str, dict]:
+    mk = market or _market
+    raw = get_setting(f"positions_meta_{mk}")
+    if raw is None and mk == "stocks":
+        raw = get_setting("positions_meta", "{}")  # pre-merge key
+    raw = raw or "{}"
+    try:
+        data = json.loads(raw)
+        return data if isinstance(data, dict) else {}
+    except (ValueError, TypeError):
+        return {}
