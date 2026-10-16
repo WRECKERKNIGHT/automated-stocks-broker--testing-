@@ -282,4 +282,14 @@ ul.tight{margin:4px 0;padding-left:18px} ul.tight li{margin:2px 0;color:var(--mu
 .drawerTrain{display:flex;align-items:center;gap:10px;justify-content:space-between;
   border:1px solid var(--border);border-radius:var(--radius);padding:12px;background:var(--panel2)}
 .btn.wide{width:100%;justify-content:center}
+.ovhead{margin:2px 0 10px}
+.ovhead h3{margin:0 0 2px;font-size:14px}
+.ovcols{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.ovcard{border:1px solid var(--border);border-radius:var(--radius);padding:12px;
+  background:linear-gradient(180deg,var(--panel2),var(--panel))}
+.ovcard h4{margin:0 0 8px;font-size:12px;letter-spacing:.6px;text-transform:uppercase;color:var(--accent2)}
+.ovcard .ovrow{display:flex;justify-content:space-between;gap:10px;padding:4px 0;border-bottom:1px solid #11161d;font-size:12px}
+.ovcard .ovrow:last-child{border-bottom:0}
+.ovcard .ovrow span:first-child{color:var(--muted)}
+.ovcard .ovrow b{font-variant-numeric:tabular-nums}
 .badge-medal{font-size:11px;color:var(--dim)}
