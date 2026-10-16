@@ -37,15 +37,19 @@ def test_cross_asset() -> None:
 def test_toxic() -> None:
     prev_block = settings.toxic_block
     settings.toxic_block = True
-    # riding informed flow (imbalance agrees with direction) is NOT adverse
-    clear = toxic.assess({"toxicity": 0.9, "imbalance": 1.0, "divergence": 0.0}, direction=1)
+    # moderate informed flow that agrees with our direction is NOT adverse -> clear
+    clear = toxic.assess({"toxicity": 0.5, "imbalance": 1.0, "divergence": 0.0}, direction=1)
+    # ... but a *saturated* book is never CLEAR, even when the raw flow agrees
+    # (fail-safe so a mis-computed VPIN can't green-light a full-size entry)
+    sat = toxic.assess({"toxicity": 0.95, "imbalance": 1.0, "divergence": 0.0}, direction=1)
     # informed flow against us -> elevated
     elev = toxic.assess({"toxicity": 0.5, "imbalance": -1.0, "divergence": 0.0}, direction=1)
     # heavy flow against us -> toxic
     tox_lvl = toxic.assess({"toxicity": 0.7, "imbalance": -1.0, "divergence": 0.0}, direction=1)
-    print("toxic:", clear["level"], elev["level"], tox_lvl["level"],
+    print("toxic:", clear["level"], sat["level"], elev["level"], tox_lvl["level"],
           "sizes", clear["size_mult"], elev["size_mult"], tox_lvl["size_mult"])
     assert clear["level"] == "CLEAR" and clear["size_mult"] == 1.0
+    assert sat["level"] == "ELEVATED" and 0 < sat["size_mult"] < 1.0
     assert elev["level"] == "ELEVATED" and 0 < elev["size_mult"] < 1.0
     assert tox_lvl["level"] == "TOXIC" and tox_lvl["size_mult"] == 0.0
     assert tox_lvl["block"] is True
@@ -89,10 +93,11 @@ def _trend_df() -> pd.DataFrame:
 
 def test_strategy_integration() -> None:
     old = (settings.alpha_decay_enabled, settings.cross_asset_enabled, settings.toxic_enabled,
-           settings.toxic_block)
+           settings.toxic_block, settings.min_confluence)
     settings.alpha_decay_enabled = False
     settings.cross_asset_enabled = True
     settings.toxic_enabled = False          # isolate market/breakout effects
+    settings.min_confluence = 1             # isolate market/breakout from the confluence gate
     params = {"regime_method": "heuristic"}
     df = _trend_df()
 
@@ -132,7 +137,7 @@ def test_strategy_integration() -> None:
     assert abs(ctx["sizing"]["dampen"] - 0.5) < 1e-9
 
     (settings.alpha_decay_enabled, settings.cross_asset_enabled, settings.toxic_enabled,
-     settings.toxic_block) = old
+     settings.toxic_block, settings.min_confluence) = old
     print("strategy cross/toxic/breakout integration OK")
 
 

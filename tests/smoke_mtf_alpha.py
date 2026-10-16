@@ -77,6 +77,8 @@ def test_strategy_mtf() -> None:
 
     settings.alpha_decay_enabled = False
     settings.mtf_enabled = True
+    # isolate MTF behaviour; the signal-confluence gate is covered elsewhere
+    settings.min_confluence = 1
     params = {"regime_method": "heuristic"}
 
     aligned = strategy.analyze("TEST", df, news_sentiment=1.0, params=params,
