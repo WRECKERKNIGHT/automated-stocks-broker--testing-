@@ -223,6 +223,12 @@ Object.assign(TIPS, {
   "Stance": "Whether the bot would buy, sell or stand aside right now.",
 });
 
+Object.assign(TIPS, {
+  "Buying Power": "How much the broker lets you deploy, including borrowed money (leverage). Not your cash.",
+  "Alert": "A price or volume rule you set; the bot pings you when it triggers.",
+  "Condition": "The rule this alert is watching for.",
+});
+
 /* surface any client error on the dashboard instead of failing silently */
 window.onerror = (msg, src, line) => {
   pushToast({ level: "error", msg: "JS: " + msg + " @" + (src || "").split("/").pop() + ":" + line });
