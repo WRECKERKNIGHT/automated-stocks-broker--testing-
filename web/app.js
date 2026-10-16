@@ -307,7 +307,8 @@ function addPriceLine(price, color, title, style) {
 
 async function loadChart() {
   try {
-    const r = await fetch(`/api/market/bars?symbol=${state.symbol}&timeframe=${state.tf}&limit=300`);
+    const tf = state.tf || "5Min";
+    const r = await fetch(`/api/market/bars?symbol=${state.symbol}&timeframe=${encodeURIComponent(tf)}&limit=300`);
     const d = await r.json();
     state.lastBars = d;
     if (d.error) return;
@@ -601,6 +602,7 @@ function renderToday(s) {
   $("tab-today").innerHTML =
     '<div class="metric-grid">' +
     metric("Day P&L", `<span class="${cls(today.pnl)}">${money(today.pnl)} (${pct(today.pnl_pct)})</span>`) +
+    metric("Realized", `<span class="${cls(today.realized_pnl)}">${money(today.realized_pnl)}</span>`) +
     metric("Trades", today.num_trades) +
     metric("Win Rate", pct(today.win_rate)) +
     metric("Profit Factor", today.profit_factor) +
@@ -632,10 +634,12 @@ async function loadDaily() {
   const r = await fetch("/api/stats/daily?limit=90");
   const ds = await r.json();
   if (!ds.length) { $("tab-daily").innerHTML = '<p class="muted">No daily history yet.</p>'; return; }
-  let h = "<table><thead><tr><th>Date</th><th>Start</th><th>End</th><th>P&L</th><th>%</th><th>Tr</th><th>Win%</th><th>PF</th><th>Exp</th><th>MaxDD</th><th>Sharpe</th><th>Best</th><th>Worst</th></tr></thead><tbody>";
+  let h = "<table><thead><tr><th>Date</th><th>Start</th><th>End</th><th>P&L</th><th>Realized</th><th>%</th><th>Tr</th><th>Win%</th><th>PF</th><th>Exp</th><th>MaxDD</th><th>Sharpe</th><th>Best</th><th>Worst</th></tr></thead><tbody>";
   for (const d of ds) {
     h += `<tr><td>${esc(d.date)}</td><td>${money(d.start_equity)}</td><td>${money(d.end_equity)}</td>
-      <td class="${cls(d.pnl)}">${money(d.pnl)}</td><td class="${cls(d.pnl)}">${pct(d.pnl_pct)}</td>
+      <td class="${cls(d.pnl)}">${money(d.pnl)}</td>
+      <td class="${cls(d.realized_pnl)}">${d.realized_pnl == null ? "--" : money(d.realized_pnl)}</td>
+      <td class="${cls(d.pnl)}">${pct(d.pnl_pct)}</td>
       <td>${d.num_trades}</td><td>${pct(d.win_rate)}</td><td>${d.profit_factor}</td>
       <td>${money(d.expectancy)}</td><td>${money(d.max_drawdown)}</td><td>${d.sharpe}</td>
       <td>${esc(d.best_symbol || "")}</td><td>${esc(d.worst_symbol || "")}</td></tr>`;
@@ -1723,6 +1727,14 @@ function boot() {
   try { initTabs("side"); } catch (e) { console.warn(e); }
   try { initRail(); } catch (e) { console.warn(e); }
   try { initLayout(); } catch (e) { console.warn(e); }
+  try {
+    applyTips();
+    const mo = new MutationObserver(() => {
+      if (mo._t) return;
+      mo._t = setTimeout(() => { mo._t = null; try { applyTips(); } catch (e) {} }, 150);
+    });
+    mo.observe(document.body, { childList: true, subtree: true });
+  } catch (e) { console.warn("tips", e); }
   const on = (id, fn) => { const el = $(id); if (el) el.onclick = fn; };
   on("botToggle", botToggle);
   on("applyCfg", applyCfg);
@@ -1735,7 +1747,7 @@ function boot() {
     b.onclick = () => {
       document.querySelectorAll(".tf").forEach((x) => x.classList.remove("active"));
       b.classList.add("active");
-      state.tf = b.dataset.tf;
+      state.tf = b.dataset.tf || "5Min";
       loadChart();
     };
   });
