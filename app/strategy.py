@@ -174,11 +174,11 @@ def analyze(symbol: str, df, news_sentiment: float = 0.0, llm_brief: dict | None
     # noise floor so ordinary wiggle can't tag a correct trade, clamped to a
     # floor/cap of price. Risk-based sizing then keeps $ risk constant as the
     # stop widens - we size down instead of getting shaken out.
-    min_stop_pct = float(params.get("min_stop_pct", 0.006))
-    max_stop_pct = float(params.get("max_stop_pct", 0.03))
+    min_stop_pct = float(params.get("min_stop_pct", 0.02))
+    max_stop_pct = float(params.get("max_stop_pct", 0.08))
     stop_lookback = int(params.get("stop_lookback", 10))
-    buffer_atr = float(params.get("stop_buffer_atr", 0.5))
-    atr_floor_mult = float(params.get("stop_atr_floor", 1.2))
+    buffer_atr = float(params.get("stop_buffer_atr", 0.75))
+    atr_floor_mult = float(params.get("stop_atr_floor", 2.0))
     swing = None
     try:
         if direction > 0:
