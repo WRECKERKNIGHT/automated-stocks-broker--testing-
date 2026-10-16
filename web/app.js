@@ -185,6 +185,14 @@ Object.assign(TIPS, {
   "Imbalance": "Order-book imbalance: more buy than sell pressure right now.",
 });
 
+Object.assign(TIPS, {
+  "Gainers": "The stocks that rose the most today.",
+  "Losers": "The stocks that fell the most today.",
+  "Most Active": "The busiest stocks by volume today.",
+  "Turnover": "Total value traded (price x volume).",
+  "Correlation": "How closely two names move together (1 = identical, 0 = unrelated).",
+});
+
 /* surface any client error on the dashboard instead of failing silently */
 window.onerror = (msg, src, line) => {
   pushToast({ level: "error", msg: "JS: " + msg + " @" + (src || "").split("/").pop() + ":" + line });
