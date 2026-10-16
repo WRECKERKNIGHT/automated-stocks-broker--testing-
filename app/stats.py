@@ -86,11 +86,17 @@ def compute_stats(trades: list[dict], equity_pts: list[dict]) -> dict:
 
 def daily_stats(date: str, day_trades: list[dict], day_equity: list[dict], notes: str = "") -> dict:
     s = compute_stats(day_trades, day_equity)
+    # Account P&L for the day = change in equity (realized + unrealized). Keep the
+    # closed-trade total separately as realized_pnl so the two never contradict:
+    # previously `pnl` was realized-only while `pnl_pct` was equity-based, which
+    # made the Daily row look internally inconsistent.
+    account_pnl = round(s["end_equity"] - s["start_equity"], 2)
     return {
         "date": date,
         "start_equity": s["start_equity"],
         "end_equity": s["end_equity"],
-        "pnl": s["total_pnl"],
+        "pnl": account_pnl,
+        "realized_pnl": s["total_pnl"],
         "pnl_pct": s["total_pnl_pct"],
         "num_trades": s["num_trades"],
         "wins": s["wins"],
