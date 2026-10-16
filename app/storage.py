@@ -17,6 +17,16 @@ _lock = threading.RLock()
 _market = "stocks"
 
 
+def set_market(market: str | None) -> str:
+    global _market
+    _market = "forex" if str(market or "").lower() == "forex" else "stocks"
+    return _market
+
+
+def get_market() -> str:
+    return _market
+
+
 def _conn() -> sqlite3.Connection:
     c = sqlite3.connect(DB_PATH, check_same_thread=False, timeout=30)
     c.row_factory = sqlite3.Row
