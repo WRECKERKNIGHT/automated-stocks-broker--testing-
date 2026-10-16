@@ -105,6 +105,17 @@ async def warmup(market: str | None = None, symbols: list[str] | None = None,
     return report
 
 
+def last_status() -> dict:
+    """The most recent warm-up report (or an empty dict)."""
+    raw = storage.get_setting(_STATUS_KEY)
+    if not raw:
+        return {}
+    try:
+        return json.loads(raw)
+    except (ValueError, TypeError):
+        return {}
+
+
 def last_report() -> dict:
     raw = storage.get_setting(_STATUS_KEY, "{}") or "{}"
     try:
