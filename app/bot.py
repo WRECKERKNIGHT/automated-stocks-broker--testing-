@@ -36,7 +36,7 @@ class TradingBot:
         self.broker = broker
         self.analyst = analyst
         self.on_update = on_update
-        self.universe = list(settings.watchlist)
+        self.universe = list(settings.watchlist_for(settings.market()))
         self.risk_profile = storage.get_setting("risk_profile", settings.risk_profile) or DEFAULT_PROFILE
         self.limits = profile_limits(self.risk_profile)
         self.stop_grace_min = settings.stop_grace_min
@@ -293,12 +293,12 @@ class TradingBot:
                                f"{a.get('value')} @ {a.get('last_price')}")
 
     async def _refresh_market(self) -> None:
-        """Cross-asset / breadth leading context (index ETFs)."""
+        """Cross-asset / breadth leading context (index ETFs, or FX proxies)."""
         if not settings.cross_asset_enabled:
             self.market = {"bias": 0.0, "label": "OFF"}
             return
         frames: dict = {}
-        for sym in settings.cross_asset_symbols:
+        for sym in settings.cross_asset_for():
             try:
                 df = await self.broker.get_bars(sym, TIMEFRAME, 120)
                 if df is not None and not df.empty:
@@ -728,7 +728,7 @@ class TradingBot:
                 "risk_profile": self.risk_profile,
                 "real_data_only": settings.real_data_only,
                 "cross_asset": {"enabled": settings.cross_asset_enabled,
-                                "symbols": settings.cross_asset_symbols,
+                                "symbols": settings.cross_asset_for(),
                                 "weight": settings.cross_asset_weight},
                 "toxic": {"enabled": settings.toxic_enabled,
                           "vpin_high": settings.toxic_vpin_high,
