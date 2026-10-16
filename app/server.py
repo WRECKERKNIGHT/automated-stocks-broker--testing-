@@ -13,9 +13,9 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import (alerts as alerts_mod, analytics, backtest, ideas, indicators,
+from . import (alerts as alerts_mod, analytics, backtest, elite, ideas, indicators,
                knowledge, microstructure, pulse, research, scanner, storage, strategy, stats,
-               universe, wfo)
+               universe, warmup, wfo)
 from .risk import PROFILES, profile_summary
 from .alpaca import get_broker
 from .analyst import Analyst
@@ -64,7 +64,13 @@ async def _broadcast(snap: dict) -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     storage.init_db()
-    state.broker = get_broker()
+    # Restore the persisted market (stocks | forex) before wiring the broker.
+    mode = storage.get_setting("market_mode", settings.market_mode) or settings.market_mode
+    mode = "forex" if str(mode).lower() == "forex" else "stocks"
+    settings.market_mode = mode
+    storage.set_market(mode)
+    elite.set_market(mode)
+    state.broker = get_broker(mode)
     state.analyst = Analyst()
     try:
         await universe.ensure_universe(state.broker)
@@ -128,6 +134,15 @@ class AlertReq(BaseModel):
     op: str = ">="               # > >= < <= ==
     value: float
     note: str | None = None
+
+
+class ModeReq(BaseModel):
+    mode: str                    # "stocks" | "forex"
+
+
+class TrainReq(BaseModel):
+    market: str | None = None    # defaults to the active market
+    timeframe: str = "5Min"
 
 
 class JournalReq(BaseModel):
