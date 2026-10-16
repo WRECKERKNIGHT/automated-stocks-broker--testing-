@@ -251,6 +251,22 @@ Object.assign(DESC_BY_ID, {
   applyCfg: ["Apply", "Save the watchlist and scan interval and push them to the bot."],
 });
 
+Object.assign(DESC_BY_ID, {
+  symbolInput: ["Symbol", "Type a ticker and press Enter to load its chart."],
+  chartPrice: ["Last price", "The most recent price of the charted symbol."],
+  chartResearch: ["Research", TIPS["🔎"]],
+  chartFocus: ["Focus", "Hide the side panels and enlarge the chart."],
+  chartFollow: ["Follow", TIPS["◎ follow"]],
+  dockTitle: ["Workspace", "The tool panel currently open in the workspace."],
+  dockMeta: ["Workspace info", "Extra detail about the open tool."],
+  dockMin: ["Collapse", "Collapse or expand the workspace panel."],
+  dockGrip: ["Resize", "Drag up or down to resize the workspace."],
+  depthCanvas: ["Depth heatmap", "Liquidity at each price over time: green = buy orders, red = sell orders."],
+  equityChart: ["Equity curve", "Your account value over time."],
+  vpCanvas: ["Volume profile", "How much volume traded at each price level (bars beside the chart)."],
+  tickerItems: ["Ticker", "A rolling strip of the symbols the bot watches and their latest prices."],
+});
+
 /* surface any client error on the dashboard instead of failing silently */
 window.onerror = (msg, src, line) => {
   pushToast({ level: "error", msg: "JS: " + msg + " @" + (src || "").split("/").pop() + ":" + line });
