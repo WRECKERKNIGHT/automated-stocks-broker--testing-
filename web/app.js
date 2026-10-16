@@ -577,6 +577,7 @@ function renderSnapshot(s) {
   const badge = $("modeBadge");
   badge.textContent = s.mode;
   badge.className = "badge " + s.mode.toLowerCase();
+  updateMarketButton(s.mode === "FOREX" ? "forex" : "stocks");
   const simBadge = $("simBadge");
   if (simBadge) {
     const fake = s.mode !== "DEMO" && s.tape && s.tape.demo;
@@ -1223,6 +1224,7 @@ const SECTIONS = {
   backtest: { title: "Backtest" },
   wfo: { title: "Walk-forward optimize", live: loadWfoRuns },
   depth: { title: "Liquidity depth", live: loadDepth },
+  overall: { title: "Overall · combined performance", live: loadOverall },
 };
 
 function showSection(sec) {
@@ -1303,6 +1305,103 @@ function openResearch(sym) {
   state.researchSym = String(sym || state.symbol || "AAPL").toUpperCase();
   showSection("research");
 }
+
+/* ---------------- market mode (Stocks ⇄ Forex) + combined stats ---------------- */
+let _marketInfo = null;
+
+function openDrawer() {
+  const d = $("marketDrawer"), s = $("drawerScrim");
+  if (d) { d.classList.remove("hidden"); d.setAttribute("aria-hidden", "false"); }
+  if (s) s.classList.remove("hidden");
+  loadMarketInfo();
+}
+function closeDrawer() {
+  const d = $("marketDrawer"), s = $("drawerScrim");
+  if (d) { d.classList.add("hidden"); d.setAttribute("aria-hidden", "true"); }
+  if (s) s.classList.add("hidden");
+}
+
+async function loadMarketInfo() {
+  try {
+    _marketInfo = await fetch("/api/mode").then((r) => r.json());
+    renderMarketDrawer(_marketInfo);
+    updateMarketButton(_marketInfo.mode);
+  } catch (e) { /* offline */ }
+}
+
+function renderMarketDrawer(info) {
+  const el = $("marketCards");
+  if (!el) return;
+  const mode = (info && info.mode) || "stocks";
+  const cards = [
+    { id: "stocks", name: "Stocks", broker: "Alpaca · US equities",
+      desc: "Live US equity tape via Alpaca. Sector-classified universe + index-ETF breadth." },
+    { id: "forex", name: "Forex", broker: "Free feed · simulated fills",
+      desc: "24/5 currency pairs + spot metals from a free public feed with paper-simulated fills." },
+  ];
+  el.innerHTML = cards.map((c) => {
+    const active = c.id === mode;
+    return `<div class="mcard ${active ? "active" : ""}" data-mode="${c.id}">
+      <div class="mname">${c.name}</div>
+      <div class="mbroker">${esc(c.broker)}</div>
+      <div class="mdesc">${c.desc}</div>
+      <span class="mtag">${active ? "● active" : "switch"}</span>
+    </div>`;
+  }).join("");
+  el.querySelectorAll(".mcard").forEach((card) => { card.onclick = () => switchMarket(card.dataset.mode); });
+  const ts = $("trainStatus");
+  if (ts && info) ts.textContent = `${info.universe || 0} symbols · bot ${info.running ? "running" : "stopped"}`;
+}
+
+async function switchMarket(mode) {
+  if (_marketInfo && _marketInfo.mode === mode) { closeDrawer(); return; }
+  const ts = $("trainStatus");
+  if (ts) ts.textContent = `Switching to ${mode}…`;
+  try {
+    const info = await fetch("/api/mode", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode }),
+    }).then((r) => r.json());
+    _marketInfo = info;
+    renderMarketDrawer(info);
+    updateMarketButton(info.mode);
+    toast(`Market switched to ${String(info.mode).toUpperCase()}`);
+    try { loadChart(); } catch (e) {}
+    try { pollStatus(); } catch (e) {}
+    try { loadOverall(); } catch (e) {}
+  } catch (e) {
+    if (ts) ts.textContent = "Switch failed";
+    toast("Market switch failed");
+  }
+}
+
+async function trainNow() {
+  const btn = $("trainBtn"), ts = $("trainStatus");
+  if (btn) { btn.disabled = true; btn.textContent = "Training…"; }
+  if (ts) ts.textContent = "Pre-fitting HMM regime models on the active market…";
+  try {
+    const rep = await fetch("/api/train", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: "{}",
+    }).then((r) => r.json());
+    if (ts) ts.textContent = `Trained ${rep.market}: ${rep.ready}/${rep.universe} models ready` +
+      (rep.failed ? ` · ${rep.failed} failed` : "") + ` · ${rep.elapsed}s`;
+    toast(`Learning pipeline warmed (${rep.ready}/${rep.universe})`);
+  } catch (e) {
+    if (ts) ts.textContent = "Training failed";
+    toast("Training failed");
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "Train"; }
+  }
+}
+
+function updateMarketButton(mode) {
+  const lbl = $("marketBtnLabel");
+  if (lbl) lbl.textContent = mode === "forex" ? "Forex" : "Stocks";
+  const b = $("marketBtn");
+  if (b) b.classList.toggle("active", mode === "forex");
+}
+
+window.openDrawer = openDrawer;
 
 /* ---------------- scanner ---------------- */
 function loadScanner() {
@@ -1934,6 +2033,13 @@ function boot() {
   on("btRun", runBacktest);
   on("wfoRun", runWFO);
   on("chartResearch", () => openResearch(state.symbol));
+  on("marketBtn", openDrawer);
+  on("drawerClose", closeDrawer);
+  on("drawerScrim", closeDrawer);
+  on("trainBtn", trainNow);
+  on("overallLink", () => { closeDrawer(); showSection("overall"); });
+  window.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrawer(); });
+  try { loadMarketInfo(); } catch (e) {}
   const ds = $("depthSymbol"); if (ds) ds.onchange = loadDepth;
   const si = $("symbolInput"); if (si) si.onchange = (e) => { state.symbol = e.target.value.toUpperCase(); loadChart(); };
   document.querySelectorAll(".tf").forEach((b) => {
