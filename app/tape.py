@@ -36,7 +36,7 @@ class TapeFeed:
         self.running = False
         self._task: asyncio.Task | None = None
         self._ws = None
-        self.demo = broker.mode == "DEMO"
+        self.demo = broker.mode == "DEMO" or bool(getattr(broker, "synthetic_tape", False))
         self.data: dict[str, dict] = {s: self._blank(s) for s in self.symbols}
         self._last_broadcast = 0.0
         self.log: list[str] = []
@@ -100,6 +100,8 @@ class TapeFeed:
     def _price_step(self, mid: float) -> float:
         if mid <= 0:
             return 0.01
+        if mid < 10:  # FX-style quotes need sub-cent granularity
+            return 0.0001
         return max(0.01, round(mid * 0.0006, 2))
 
     def _record_heat(self) -> None:
@@ -257,24 +259,36 @@ class TapeFeed:
     async def _run_demo(self) -> None:
         import random
 
-        # seed anchors from current prices
         prices: dict[str, float] = {}
-        for s in self.symbols:
-            try:
-                prices[s] = await self.broker.get_latest_price(s) or 100.0
-            except Exception:  # noqa: BLE001
-                prices[s] = 100.0
+        seeded: set[str] = set()
         while self.running:
+            current = set(self.symbols)
+            for s in self.symbols:
+                if s in seeded:
+                    continue
+                try:
+                    px = await self.broker.get_latest_price(s)
+                except Exception:  # noqa: BLE001
+                    px = 0.0
+                prices[s] = float(px) if px else 100.0
+                seeded.add(s)
+            seeded &= current
+            for s in list(prices):
+                if s not in current:
+                    prices.pop(s, None)
             for s in self.symbols:
                 p = prices.get(s, 100.0)
-                tick = max(0.01, round(p * random.uniform(0.00002, 0.0004), 2))
-                p = round(max(0.5, p + random.gauss(0, tick)), 2)
+                dec = 5 if p < 10 else 2          # FX quotes carry 5 decimals
+                tick = max(10 ** -dec, p * 0.0002)
+                p = round(max(10 ** -dec, p + random.gauss(0, tick)), dec)
                 prices[s] = p
-                bid = round(p - random.uniform(0.01, tick + 0.01), 2)
-                ask = round(p + random.uniform(0.01, tick + 0.01), 2)
+                half = max(10 ** -dec, tick * 0.5)
+                bid = round(p - half * random.uniform(0.5, 1.5), dec)
+                ask = round(p + half * random.uniform(0.5, 1.5), dec)
                 self._on_quote(s, bid, ask, random.randint(100, 5000), random.randint(100, 5000))
                 for _ in range(random.randint(1, 4)):
-                    self._on_trade(s, round(random.uniform(bid, ask), 2), random.choice([100, 200, 300, 500, 1000, 2500]))
+                    self._on_trade(s, round(random.uniform(bid, ask), dec),
+                                   random.choice([100, 200, 300, 500, 1000, 2500]))
             await self._maybe_broadcast()
             await asyncio.sleep(0.8)
 
