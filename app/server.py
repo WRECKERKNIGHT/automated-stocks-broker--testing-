@@ -163,6 +163,23 @@ async def status():
     return await state.bot.build_snapshot()
 
 
+@app.post("/api/train")
+async def train(req: TrainReq | None = None):
+    """Warm up (train) the learning pipeline for a market."""
+    market = (req.market if req and req.market else settings.market())
+    tf = req.timeframe if req else "5Min"
+    report = await warmup.warmup(market=market, timeframe=tf)
+    await _broadcast({"type": "train", "data": {
+        "market": report.get("market"), "ready": report.get("ready"),
+        "failed": report.get("failed"), "universe": report.get("universe")}})
+    return report
+
+
+@app.get("/api/train/status")
+async def train_status():
+    return warmup.last_status()
+
+
 @app.get("/api/news")
 async def news(limit: int = 40):
     return storage.recent_news(limit=limit)
