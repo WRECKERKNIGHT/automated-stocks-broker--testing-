@@ -213,6 +213,16 @@ Object.assign(TIPS, {
   "Saved runs": "Past walk-forward tests you can reload.",
 });
 
+Object.assign(TIPS, {
+  "Note": "Your own note about this trade.",
+  "Notes": "Your own notes about this trade.",
+  "Principle": "A trading rule worth following.",
+  "Lesson": "A teaching distilled from the trading-books library.",
+  "Author": "Who wrote the source material.",
+  "Book": "The source title in the library.",
+  "Stance": "Whether the bot would buy, sell or stand aside right now.",
+});
+
 /* surface any client error on the dashboard instead of failing silently */
 window.onerror = (msg, src, line) => {
   pushToast({ level: "error", msg: "JS: " + msg + " @" + (src || "").split("/").pop() + ":" + line });
