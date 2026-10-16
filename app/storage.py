@@ -183,6 +183,7 @@ CREATE TABLE IF NOT EXISTS app_settings (
 def init_db() -> None:
     with _lock:
         c = _conn()
+        c.execute("PRAGMA journal_mode=WAL")
         c.executescript(SCHEMA)
         _migrate(c)
         c.commit()
@@ -194,6 +195,9 @@ def _migrate(c: sqlite3.Connection) -> None:
     cols = {r["name"] for r in c.execute("PRAGMA table_info(signal_outcomes)").fetchall()}
     if "regime" not in cols:
         c.execute("ALTER TABLE signal_outcomes ADD COLUMN regime TEXT")
+    dcols = {r["name"] for r in c.execute("PRAGMA table_info(daily_stats)").fetchall()}
+    if "realized_pnl" not in dcols:
+        c.execute("ALTER TABLE daily_stats ADD COLUMN realized_pnl REAL")
 
 
 def _insert(table: str, row: dict[str, Any]) -> int:
