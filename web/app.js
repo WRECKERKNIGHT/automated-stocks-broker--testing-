@@ -1927,6 +1927,7 @@ function boot() {
     });
     mo.observe(document.body, { childList: true, subtree: true });
   } catch (e) { console.warn("tips", e); }
+  try { initHoverHints(); } catch (e) { console.warn("hoverhints", e); }
   const on = (id, fn) => { const el = $(id); if (el) el.onclick = fn; };
   on("botToggle", botToggle);
   on("applyCfg", applyCfg);
