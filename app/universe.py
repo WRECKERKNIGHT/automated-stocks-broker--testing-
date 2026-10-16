@@ -249,6 +249,26 @@ def load_fallback() -> int:
     return len(rows)
 
 
+def load_fx_fallback(watchlist: list[str] | None = None) -> int:
+    """Populate the universe cache with the FX grouped universe."""
+    from .config import settings
+    syms = list(watchlist or settings.forex_watchlist) or list(FX_FALLBACK)
+    rows = [{"symbol": s.upper(), "name": s.upper().replace("_", "/"), "exchange": "FX",
+             "tradable": True, "fractionable": True, "shortable": True,
+             "sector": _classify_fx(s)} for s in syms]
+    storage.replace_universe(rows)
+    return len(rows)
+
+
+def is_fx_universe() -> bool:
+    """True if the cached universe looks like FX (rather than equities)."""
+    rows = storage.get_universe()
+    if not rows:
+        return False
+    fx = sum(1 for r in rows if "_" in (r.get("symbol") or ""))
+    return fx >= max(1, len(rows) // 2)
+
+
 async def ensure_universe(broker: Broker, *, force: bool = False) -> int:
     """Populate the universe cache if empty (or when forced).
 
