@@ -418,6 +418,7 @@ class TradingBot:
         storage.log_signal_outcomes(sym, meta.get("signals", []), pnl, pnl_pct,
                                     regime=meta.get("regime"))
         self.positions.pop(sym, None)
+        self._persist_positions()
         self.trades_today += 1
         # anti-revenge: after a real loss, stay out of that name for a while so we
         # don't immediately re-buy a losing ticker at a worse price (Douglas).
@@ -473,8 +474,24 @@ class TradingBot:
         if not mind_ok:
             blocks.append(mind_why)
             allowed = False
+        # portfolio heat: cap the sum of open $ risk (entry->stop) across all names
+        # so a single correlated shock cannot hit every position at once.
+        open_heat = 0.0
+        for p in positions:
+            m = self.positions.get(p["symbol"]) or {}
+            open_heat += abs(p["qty"]) * abs(m.get("risk") or 0.0)
+        heat_frac = open_heat / account["equity"] if account["equity"] else 0.0
+        if heat_frac >= self.max_open_heat_pct:
+            blocks.append(f"portfolio heat {heat_frac:.1%} >= cap {self.max_open_heat_pct:.0%}")
+            allowed = False
         win_prob, wl = self._recent_edge()
         await self._refresh_market()
+
+        # one-way-concentration guard: count how many names we already hold on
+        # each side so a macro move cannot stop out a whole directional book.
+        side_counts = {1: 0, -1: 0}
+        for p in positions:
+            side_counts[1 if p["qty"] > 0 else -1] += 1
 
         for sym in self.universe:
             if sym in pos_syms or sym in self.positions:
@@ -591,6 +608,15 @@ class TradingBot:
                     decision_row["error"] = "size 0 (risk/notional constraints)"
                 else:
                     decision_row["error"] = f"mind sized down x{mult:.2f} ({self.mind.state})"
+                storage.log_decision(decision_row)
+                continue
+
+            direction = ctx["direction"]
+            if side_counts.get(direction, 0) >= self.limits.max_positions_per_side:
+                side_name = "long" if direction > 0 else "short"
+                decision_row["error"] = (f"side cap: already {side_counts[direction]} {side_name} "
+                                         f"positions (max {self.limits.max_positions_per_side}) - "
+                                         f"refusing to stack a one-way bet")
                 storage.log_decision(decision_row)
                 continue
 
