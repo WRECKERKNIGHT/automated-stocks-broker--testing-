@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>AI Trader</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%230a0c10'/%3E%3Cpath d='M3 11l3-4 2 2 4-6' stroke='%230ecb81' stroke-width='1.6' fill='none'/%3E%3C/svg%3E" />
-<link rel="stylesheet" href="/static/styles.css?v=12" />
+<link rel="stylesheet" href="/static/styles.css?v=13" />
 <script src="/static/vendor/lightweight-charts.standalone.production.js?v=1"></script>
 </head>
 <body>
@@ -22,6 +22,7 @@
   </div>
   <div class="controls">
     <span id="connState" class="pill muted">connecting…</span>
+    <button id="marketBtn" class="btn market" title="Switch market (Stocks ⇄ Forex)">🌐 <span id="marketBtnLabel">Stocks</span></button>
     <button id="botToggle" class="btn primary">Start Bot</button>
     <span id="botState" class="pill">stopped</span>
     <input id="scanInterval" class="mini" type="number" min="5" value="30" title="scan interval (sec)" />
@@ -54,6 +55,7 @@
     <button class="railbtn" data-sec="library">Library</button>
     <button class="railbtn" data-sec="pulse">Pulse</button>
     <div class="railsep"></div>
+    <button class="railbtn" data-sec="overall">Overall</button>
     <button class="railbtn" data-sec="equity">Equity</button>
     <button class="railbtn" data-sec="trades">Trades</button>
     <button class="railbtn" data-sec="daily">Daily</button>
@@ -115,6 +117,7 @@
         <div class="panel hidden" id="tab-coach"><div id="coachBody"></div></div>
         <div class="panel hidden" id="tab-library"><div id="libraryBar"></div><div id="libraryBody"></div></div>
         <div class="panel hidden" id="tab-pulse"><div id="pulseBody"></div></div>
+        <div class="panel hidden" id="tab-overall"><div id="overallBody"></div></div>
         <div class="panel hidden" id="tab-equity"><div id="equityChart"></div></div>
         <div class="panel hidden" id="tab-trades"></div>
         <div class="panel hidden" id="tab-daily"></div>
@@ -184,7 +187,8 @@
   </aside>
 </div>
 
-<script src="/static/app.js?v=12"></script>
+<script src="/static/app.js?v=13"></script>
+
 <div id="toasts"></div>
 </body>
 </html>
