@@ -188,7 +188,27 @@
 </div>
 
 <script src="/static/app.js?v=13"></script>
-
+<div id="drawerScrim" class="scrim hidden"></div>
+<aside id="marketDrawer" class="drawer hidden" aria-hidden="true">
+  <div class="drawerHead">
+    <b>Markets</b>
+    <span class="spacer"></span>
+    <button id="drawerClose" class="dockmin" title="close">✕</button>
+  </div>
+  <div class="drawerBody">
+    <p class="muted small">One app, two markets. Switching swaps the broker, universe and tape live — no restart. The book and stats stay combined across both.</p>
+    <div id="marketCards" class="mcards"></div>
+    <div class="drawerTrain">
+      <div>
+        <b>Learning pipeline</b>
+        <div class="muted small">Pre-fit the HMM regime models + alpha signal weights for the active market so the bot starts warm.</div>
+      </div>
+      <button id="trainBtn" class="btn">Train</button>
+    </div>
+    <div id="trainStatus" class="muted small"></div>
+    <button id="overallLink" class="btn wide">View overall stats</button>
+  </div>
+</aside>
 <div id="toasts"></div>
 </body>
 </html>
