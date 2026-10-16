@@ -18,11 +18,20 @@ from typing import Awaitable, Callable
 from .config import settings
 
 
+def _first_error(msgs) -> str | None:
+    """Return 'code msg' for the first Alpaca feed error in a message batch."""
+    if isinstance(msgs, list):
+        for m in msgs:
+            if isinstance(m, dict) and m.get("T") == "error":
+                return f"{m.get('code')} {m.get('msg')}"
+    return None
+
+
 class TapeFeed:
     def __init__(self, broker, symbols: list[str],
                  on_update: Callable[[dict], Awaitable[None]] | None = None) -> None:
         self.broker = broker
-        self.symbols = [s.upper() for s in symbols]
+        self.symbols = self._cap_symbols([s.upper() for s in symbols])
         self.on_update = on_update
         self.running = False
         self._task: asyncio.Task | None = None
@@ -41,8 +50,16 @@ class TapeFeed:
                 "trades": [], "_pv": 0.0, "_v": 0.0}
 
     # ------------------------------------------------------------------
+    def _cap_symbols(self, symbols: list[str]) -> list[str]:
+        """Trim to the feed's per-plan symbol limit (free IEX => 405 otherwise)."""
+        lim = max(1, int(settings.tape_max_symbols))
+        return list(dict.fromkeys(symbols))[:lim]
+
     def update_symbols(self, symbols: list[str]) -> None:
-        self.symbols = list(dict.fromkeys(s.upper() for s in symbols))
+        self.symbols = self._cap_symbols([s.upper() for s in symbols])
+        keep = set(self.symbols)
+        self.data = {s: d for s, d in self.data.items() if s in keep}
+        self._heat = {s: d for s, d in self._heat.items() if s in keep}
         for s in self.symbols:
             self.data.setdefault(s, self._blank(s))
             self._heat.setdefault(s, deque(maxlen=120))
