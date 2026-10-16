@@ -37,61 +37,16 @@ from zoneinfo import ZoneInfo
 
 ET = ZoneInfo("America/New_York")
 
-TRADERS: list[dict] = [
-    {"name": "Richard Wyckoff", "style": "Composite Operator / phases",
-     "rules": ["Trade with institutional intent, not against it; read the tape for footprints.",
-               "Buy the spring, sell the upthrust - trades that trap the crowd.",
-               "Wait for the phase to develop; patience is the whole method."]},
-    {"name": "Jesse Livermore", "style": "Speculation / pivotal points",
-     "rules": ["Trade the main movement, not the individual fluctuations.",
-               "Wait for the pivotal point; late and correct beats early and wrong.",
-               "Never average a loss; sit tight once you are right."]},
-    {"name": "Paul Tudor Jones", "style": "Macro / risk-first",
-     "rules": ["Defence first - control the downside and the upside takes care of itself.",
-               "Don't fight the tape; align with the dominant trend.",
-               "The best trade you make may be the one you don't make."]},
-    {"name": "Mark Minervini", "style": "Momentum / trend template",
-     "rules": ["Trade only in a confirmed uptrend; price above key moving averages.",
-               "Buy strength, never average down into a loser.",
-               "Risk 1-2% per trade and only take A+ setups."]},
-    {"name": "Linda Raschke", "style": "Volatility breakout",
-     "rules": ["Big moves are born from volatility expansion.",
-               "If the trade doesn't work quickly, get out - time is a cost.",
-               "Trade the leaders of the strongest group."]},
-    {"name": "Al Brooks", "style": "Price action",
-     "rules": ["Only take trades with context; skip the middle of a range.",
-               "Wait for a clear signal bar at a familiar level.",
-               "Trend bars close near their extremes - that is the momentum footprint."]},
-    {"name": "Dan Zanger", "style": "Momentum / leaders",
-     "rules": ["Trade the highest relative-strength leaders on volume expansion.",
-               "The biggest gains come from bases breaking out on huge volume.",
-               "Cut quickly if the breakout fails."]},
-    {"name": "Ed Seykota", "style": "Trend following",
-     "rules": ["Cut losses; ride winners; manage risk; know when to do nothing.",
-               "The elements of good trading are timeless - the process, not the outcome."]},
-    {"name": "Mark Douglas", "style": "Psychology",
-     "rules": ["Think in probabilities; one trade means nothing.",
-               "Your edge is a series - obey the process, not the outcome.",
-               "Don't revenge-trade; step away after a loss."]},
-]
-
-MAX_SESSION_START_MIN = 9 * 60 + 30   # 09:30 ET
-MAX_SESSION_END_MIN = 15 * 60 + 50    # 15:50 ET (avoid the closing auction drift)
-NO_OPEN_MIN = 9 * 60 + 35             # don't enter in the first 5 minutes
-
-# Prime windows: the times of day with the best follow-through for our setups.
-_PHASES = [
-    (9 * 60 + 35, 10 * 60, "opening_drive", 1.0),
-    (10 * 60, 11 * 60 + 30, "morning_trend", 1.0),
-    (11 * 60 + 30, 13 * 60 + 30, "midday_lull", 0.7),
-    (13 * 60 + 30, 15 * 60 + 45, "afternoon_trend", 1.0),
-    (15 * 60 + 45, 15 * 60 + 50, "power_hour", 1.0),
-]
+# Active market ("stocks" | "forex"). The session playbook is written for the US
+# equity session; FX trades ~24/5 so the session gates become a neutral pass.
+_market = "stocks"
 
 
 def session_phase(now: datetime | None = None) -> dict:
     """Which phase of the session are we in, and how should we behave?"""
     now = now or datetime.now(ET)
+    if _market == "forex":
+        return {"phase": "fx_session", "size_mult": 1.0, "note": "24/5 FX session"}
     m = now.hour * 60 + now.minute
     for start, end, name, mult in _PHASES:
         if start <= m < end:
@@ -110,6 +65,10 @@ def session_phase(now: datetime | None = None) -> dict:
 def session_ok(now: datetime | None = None) -> tuple[bool, str]:
     """Prime-hours filter: skip the chaotic open and the closing auction drift."""
     now = now or datetime.now(ET)
+    if _market == "forex":
+        # FX runs Sunday 22:00 UTC -> Friday 22:00 UTC; otherwise always tradeable.
+        wd = now.astimezone(ZoneInfo("UTC")).weekday()
+        return (wd < 5, "24/5 FX session" if wd < 5 else "FX weekend - market closed")
     m = now.hour * 60 + now.minute
     if m < NO_OPEN_MIN:
         return False, "pre-open / opening chop (first 5 min)"
