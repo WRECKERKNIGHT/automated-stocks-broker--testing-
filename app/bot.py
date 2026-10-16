@@ -43,12 +43,21 @@ class TradingBot:
         self.disaster_pct = settings.disaster_stop_pct
         self.stop_grace_mult = settings.stop_grace_mult
         self.max_hold_min = max(60, int(settings.max_hold_min)) if hasattr(settings, "max_hold_min") else MAX_HOLD_MIN
+        self.time_stop_enabled = bool(getattr(settings, "time_stop_enabled", False))
+        self.breakeven_r = float(getattr(settings, "breakeven_r", 1.5))
+        self.scale_out_r = float(getattr(settings, "scale_out_r", 0.0))
+        self.scale_out_frac = float(getattr(settings, "scale_out_frac", 0.25))
+        self.flatten_at_eod = bool(getattr(settings, "flatten_at_eod", True))
+        self.max_open_heat_pct = float(getattr(settings, "max_open_heat_pct", 0.06))
         self.revenge_cooldown = settings.revenge_cooldown_min
         self.symbol_cooldown: dict[str, float] = {}
         self.scan_interval = settings.scan_interval
         self.running = False
         self._task: asyncio.Task | None = None
-        self.positions: dict[str, dict] = {}
+        try:
+            self.positions: dict[str, dict] = storage.load_positions_meta()
+        except Exception:  # noqa: BLE001
+            self.positions = {}
         self.day = self._et_date()
         self.day_start_equity: float | None = None
         self.trades_today = 0
@@ -76,6 +85,17 @@ class TradingBot:
 
     def _log(self, level: str, msg: str) -> None:
         self.log.appendleft({"ts": time.time(), "level": level, "msg": msg})
+
+    def _persist_positions(self) -> None:
+        """Save live stops / thesis to SQLite so a restart does not lose them.
+
+        Without this, positions are re-adopted after a restart with a synthetic
+        stop (entry - 1.5*ATR), which can cut a working trade at a random level.
+        """
+        try:
+            storage.save_positions_meta(self.positions)
+        except Exception:  # noqa: BLE001
+            pass
 
     def _notify(self, text: str, level: str = "info") -> None:
         if not self.notifier.enabled:
@@ -170,6 +190,14 @@ class TradingBot:
 
         positions = await self.broker.get_positions()
         pos_syms = {p["symbol"] for p in positions}
+
+        # drop persisted metadata for positions that no longer exist (closed
+        # externally / filled stop) so a stale entry can't block re-entry.
+        stale = [s for s in self.positions if s not in pos_syms]
+        for s in stale:
+            self.positions.pop(s, None)
+        if stale:
+            self._persist_positions()
 
         storage.log_equity({
             "equity": account["equity"], "cash": account["cash"],
