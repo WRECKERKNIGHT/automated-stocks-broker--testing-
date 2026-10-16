@@ -129,6 +129,24 @@ def analyze(symbol: str, df, news_sentiment: float = 0.0, llm_brief: dict | None
     direction = 1 if composite > 0 else (-1 if composite < 0 else 0)
     action = "BUY" if direction > 0 else ("SELL" if direction < 0 else "HOLD")
 
+    gates: list[str] = []
+
+    # --- anti-fade: never trade against the higher-timeframe trend. Fading a
+    # trend (buying a dip in a down-trend / shorting a rip in an up-trend) is the
+    # single most expensive habit; when the HTF disagrees, stand down. ---
+    htf_veto = (settings.antifade_enabled and direction != 0
+                and htf_trend != 0 and direction * htf_trend < 0)
+    if htf_veto:
+        gates.append(f"anti-fade veto: would trade against HTF {mtf_info.get('label')} trend")
+        action, direction, confidence = "HOLD", 0, 0.0
+
+    # --- confluence: require >= min_confluence independent signals to agree.
+    # A single weak signal is a coin flip; two agreeing signals is a setup. ---
+    aligned = [s for s in sigs if s["dir"] == direction and s.get("weight", 0) > 0]
+    if direction != 0 and len(aligned) < max(1, settings.min_confluence):
+        gates.append(f"confluence {len(aligned)} < {settings.min_confluence} (single-signal entry)")
+        action, direction, confidence = "HOLD", 0, 0.0
+
     # --- adverse-selection / toxic-flow defence (direction-aware) ---
     toxicity = toxic.assess(micro, direction)
     if toxicity.get("block") and direction != 0:
@@ -136,6 +154,7 @@ def analyze(symbol: str, df, news_sentiment: float = 0.0, llm_brief: dict | None
 
     reasons = [f"Regime: {reg['regime']} ({book['style']})"]
     reasons += [s["reason"] for s in sigs]
+    reasons += gates
     if settings.mtf_enabled and htf is not None and not mtf_blocked and mtf_info.get("trend", 0) != 0:
         tag = "aligned" if mtf_mult >= 1.0 else "conflict"
         reasons.append(f"MTF {mtf_info.get('label')}: {tag} (x{mtf_mult:.2f})")
