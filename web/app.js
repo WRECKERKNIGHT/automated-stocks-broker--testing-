@@ -229,6 +229,17 @@ Object.assign(TIPS, {
   "Condition": "The rule this alert is watching for.",
 });
 
+/* ---- described regions that carry no readable label of their own ---- */
+const DESC_BY_ID = {
+  equity: ["Equity", TIPS["Equity"]],
+  daypnl: ["Day P&L", TIPS["Day"]],
+  bp: ["Buying Power", TIPS["BP"]],
+  npos: ["Open positions", TIPS["Pos"]],
+  mkt: ["Market", TIPS["Mkt"]],
+  uni: ["Universe", TIPS["Universe"]],
+  llmState: ["Language model", TIPS["LLM"]],
+};
+
 /* surface any client error on the dashboard instead of failing silently */
 window.onerror = (msg, src, line) => {
   pushToast({ level: "error", msg: "JS: " + msg + " @" + (src || "").split("/").pop() + ":" + line });
