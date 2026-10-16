@@ -87,6 +87,64 @@ def _range_for(interval: str, limit: int) -> str:
     return _RANGE_CEIL.get(interval, "1mo")
 
 
+def _parse(symbol: str, payload: dict) -> pd.DataFrame:
+    """Turn a Yahoo chart payload into a tidy OHLCV frame (UTC index)."""
+    try:
+        result = (payload or {}).get("chart", {}).get("result") or []
+        if not result:
+            return pd.DataFrame(columns=["open", "high", "low", "close", "volume"])
+        node = result[0]
+        stamps = node.get("timestamp") or []
+        quote = ((node.get("indicators") or {}).get("quote") or [{}])[0]
+        opens = quote.get("open") or []
+        highs = quote.get("high") or []
+        lows = quote.get("low") or []
+        closes = quote.get("close") or []
+        vols = quote.get("volume") or []
+    except Exception:  # noqa: BLE001
+        return pd.DataFrame(columns=["open", "high", "low", "close", "volume"])
+
+    rows = []
+    for i, ts in enumerate(stamps):
+        try:
+            o, h, l, c = opens[i], highs[i], lows[i], closes[i]
+            if None in (o, h, l, c):
+                continue
+            v = vols[i] if i < len(vols) and vols[i] is not None else 0.0
+            rows.append({"t": ts, "open": float(o), "high": float(h),
+                         "low": float(l), "close": float(c), "volume": float(v)})
+        except (IndexError, TypeError, ValueError):
+            continue
+    if not rows:
+        return pd.DataFrame(columns=["open", "high", "low", "close", "volume"])
+    df = pd.DataFrame(rows)
+    df["t"] = pd.to_datetime(df["t"], unit="s", utc=True)
+    df = df.drop_duplicates(subset=["t"]).set_index("t").sort_index()
+    return df
+
+
+async def fetch_bars(symbol: str, timeframe: str = "5Min", limit: int = 300) -> pd.DataFrame:
+    """Fetch ``limit`` candles for ``symbol``; empty frame on any failure."""
+    tf = timeframe if timeframe in _INTERVAL else "5Min"
+    interval = _INTERVAL[tf]
+    rng = _range_for(interval, limit)
+    key = (to_yahoo(symbol), interval, rng)
+    now = time.time()
+    hit = _cache.get(key)
+    if hit and now - hit[0] < _CACHE_TTL:
+        return hit[1].tail(limit)
+
+    params = {"interval": interval, "range": rng, "includePrePost": "false"}
+    try:
+        r = await _get_client().get(_CHART.format(sym=key[0]), params=params)
+        r.raise_for_status()
+        df = _parse(symbol, r.json())
+    except Exception:  # noqa: BLE001 - network/parse errors fall back to empty
+        df = pd.DataFrame(columns=["open", "high", "low", "close", "volume"])
+    _cache[key] = (now, df)
+    return df.tail(limit)
+
+
 def last_error(payload: dict) -> str:
     """Extract a Yahoo error string (for diagnostics)."""
     err = (payload or {}).get("chart", {}).get("error")
