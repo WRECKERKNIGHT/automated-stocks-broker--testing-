@@ -16,7 +16,11 @@ _lock = threading.RLock()
 def _conn() -> sqlite3.Connection:
     c = sqlite3.connect(DB_PATH, check_same_thread=False, timeout=30)
     c.row_factory = sqlite3.Row
-    c.execute("PRAGMA journal_mode=WAL")
+    # busy_timeout lets a reader/writer wait for a brief write lock instead of
+    # raising immediately; journal mode is set once in init_db (it is persisted
+    # in the DB header, so re-issuing it on every connection only adds lock
+    # contention against the live bot).
+    c.execute("PRAGMA busy_timeout=30000")
     return c
 
 
@@ -65,6 +69,7 @@ CREATE TABLE IF NOT EXISTS daily_stats (
     start_equity REAL,
     end_equity REAL,
     pnl REAL,
+    realized_pnl REAL,
     pnl_pct REAL,
     num_trades INTEGER,
     wins INTEGER,
