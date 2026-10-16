@@ -231,4 +231,23 @@ class Settings:
             return "PAPER" if self.alpaca_paper else "LIVE"
         return "DEMO"
 
+    # ---- market-mode helpers -------------------------------------------------
+    def market(self) -> str:
+        """Normalised active market: always "stocks" or "forex"."""
+        return "forex" if str(self.market_mode).lower() == "forex" else "stocks"
+
+    def watchlist_for(self, mode: str | None = None) -> list[str]:
+        """The tradeable universe for a given market (defaults to the active one)."""
+        m = (mode or self.market()).lower()
+        return list(self.forex_watchlist) if m == "forex" else list(self.watchlist)
+
+    def cross_asset_for(self, mode: str | None = None) -> list[str]:
+        """Market-breadth proxies appropriate to the market."""
+        m = (mode or self.market()).lower()
+        if m == "forex":
+            return [s.strip().upper() for s in
+                    os.getenv("CROSS_ASSET_SYMBOLS_FOREX", DEFAULT_CROSS_FOREX).split(",") if s.strip()]
+        return list(self.cross_asset_symbols)
+
+
 settings = Settings()
