@@ -481,7 +481,17 @@ class DemoBroker(Broker):
 
 
 # ----------------------------------------------------------------------------
-def get_broker() -> Broker:
+def get_broker(mode: str | None = None) -> Broker:
+    """Return the broker for the active market mode.
+
+    * "forex"  -> FxBroker (free public FX feed + simulated paper fills)
+    * "stocks" -> AlpacaBroker when keys are configured, else the DemoBroker
+    """
+    want = (mode or settings.market()).lower()
+    if want == "forex":
+        from .fxbroker import FxBroker
+
+        return FxBroker()
     if settings.alpaca_enabled:
         return AlpacaBroker()
     return DemoBroker()
