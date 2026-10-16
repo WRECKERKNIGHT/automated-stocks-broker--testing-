@@ -41,6 +41,18 @@ def _list(name: str, default: str) -> list[str]:
     return [s.strip().upper() for s in raw.split(",") if s.strip()]
 
 
+# Curated, liquid FX universe used by the merged app's "forex" market mode.
+DEFAULT_FOREX_WATCHLIST = (
+    "EUR_USD,GBP_USD,USD_JPY,USD_CHF,AUD_USD,USD_CAD,NZD_USD,"
+    "EUR_JPY,GBP_JPY,EUR_GBP,EUR_CHF,AUD_JPY,XAU_USD,XAG_USD"
+)
+
+# Cross-asset "market breadth" proxies per mode. Stocks lean on index ETFs;
+# forex leans on the majors + gold as the risk barometer.
+DEFAULT_CROSS_STOCKS = "SPY,QQQ,IWM"
+DEFAULT_CROSS_FOREX = "EUR_USD,USD_JPY,XAU_USD"
+
+
 @dataclass
 class Settings:
     # --- Alpaca ---
@@ -63,6 +75,12 @@ class Settings:
     port: int = field(default_factory=lambda: _i("PORT", 8000))
     start_bot_on_launch: bool = field(default_factory=lambda: _b("START_BOT_ON_LAUNCH", True))
     scan_interval: int = field(default_factory=lambda: _i("SCAN_INTERVAL_SEC", 30))
+
+    # --- Market mode: "stocks" (Alpaca) or "forex" (free public FX feed) ---
+    # One process, one dashboard: the mode selects which broker + universe the
+    # bot trades. The choice is switchable at runtime from the UI drawer and is
+    # persisted in SQLite (app_settings.market_mode) so restarts keep it.
+    market_mode: str = field(default_factory=lambda: os.getenv("MARKET_MODE", "stocks").strip().lower())
 
     # --- Engine ---
     regime_method: str = field(default_factory=lambda: os.getenv("REGIME_METHOD", "hybrid").strip().lower())
@@ -188,6 +206,13 @@ class Settings:
         if s.strip()
     ])
 
+    # --- Forex universe (used when market_mode == "forex") ---
+    forex_watchlist: list[str] = field(default_factory=lambda: [
+        s.strip().upper()
+        for s in os.getenv("FOREX_WATCHLIST", DEFAULT_FOREX_WATCHLIST).split(",")
+        if s.strip()
+    ])
+
     @property
     def trading_base(self) -> str:
         return "https://paper-api.alpaca.markets" if self.alpaca_paper else "https://api.alpaca.markets"
@@ -205,6 +230,5 @@ class Settings:
         if self.alpaca_enabled:
             return "PAPER" if self.alpaca_paper else "LIVE"
         return "DEMO"
-
 
 settings = Settings()
