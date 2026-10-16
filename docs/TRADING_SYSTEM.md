@@ -175,10 +175,13 @@ Rules, in order:
    tight enough not to give back a big move.
 6. **No target-based exit.** There is intentionally **no "target hit" full
    exit**. A hard target caps a winner; the trail lets it ride.
-7. **No stall exit.** The old "cut trades that go nowhere after 90 min" rule is
-   **removed**. There is only a loose `MAX_HOLD_MIN` time cap (default 360 min)
-   that fires *only when the trade is still near flat* (`< 0.5R`) - i.e. it
-   reclaims capital from genuinely dead trades but **never cuts a runner**.
+7. **No stall exit / default patience.** The old "cut trades that go nowhere
+   after 90 min" rule is **removed**, and the clock-based time stop is now
+   **off by default** (`TIME_STOP_ENABLED=false`). A position lives until its
+   thesis breaks (structural stop / disaster backstop) or the EOD flatten. If
+   enabled, the time stop fires only on a trade that **never worked at all**
+   (high-water mark never reached `+0.5R`) after `MAX_HOLD_MIN` - it will never
+   cut a runner that made progress and pulled back.
 8. **Anti-revenge cooldown.** After a real stop-out loss, the symbol is put on a
    `REVENGE_COOLDOWN_MIN` (45 min) cool-down so the bot cannot immediately
    re-buy a loser at a worse price (Douglas: don't revenge-trade).
@@ -219,6 +222,14 @@ Key mechanics:
   *wrong* (below/above the swing), not at a blind ATR distance, then floored to
   `min_stop_pct` (0.6%) and `ATR × atr_floor_mult` (1.2) so it stays outside the
   noise, and capped at `max_stop_pct` (3%).
+- **Probe sizing, never zero.** Fractional Kelly *scales* the bet between a
+  probe floor (`min_frac`, 0.25) and full size; a small or negative recent-edge
+  sample reduces size, it does **not** zero the order (that bug idled the desk
+  for a whole session). The psychology layer, not the sizing formula, is what
+  stands the desk down (cooldown / tilt / halt).
+- **One-way concentration guard** (`max_positions_per_side`): caps how many
+  names may be held on the same side (6 long / 6 short on balanced) so a single
+  market move cannot stop out a fully-correlated directional book.
 - **Portfolio checks** (`risk.check_portfolio`): open positions, gross exposure,
   daily loss, trades-per-day - any breach blocks new entries and journals why.
 
