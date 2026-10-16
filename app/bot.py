@@ -109,6 +109,29 @@ class TradingBot:
         self.universe = [s.upper() for s in symbols if s and s.strip()]
         self.tape.update_symbols(self.universe)
 
+    def apply_market(self, mode: str, broker: Broker, universe: list[str]) -> None:
+        """Hot-swap the bot onto a different market without a restart.
+
+        Swaps the broker, universe, sector classification and per-market state
+        (positions metadata lives under a market-namespaced settings key).
+        """
+        mode = "forex" if str(mode).lower() == "forex" else "stocks"
+        self.broker = broker
+        storage.set_market(mode)
+        elite.set_market(mode)
+        try:
+            self.alpha.reset()
+        except Exception:  # noqa: BLE001
+            pass
+        self.tape.broker = broker
+        self.tape.demo = broker.mode == "DEMO" or bool(getattr(broker, "synthetic_tape", False))
+        self.set_universe(universe)
+        self.market = {"bias": 0.0, "label": "OFF"}
+        try:
+            self.positions = storage.load_positions_meta(mode)
+        except Exception:  # noqa: BLE001
+            self.positions = {}
+
     # ------------------------------------------------------------------
     async def start(self) -> None:
         if self.running:
