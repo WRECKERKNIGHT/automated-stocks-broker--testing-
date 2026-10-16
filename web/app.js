@@ -193,6 +193,16 @@ Object.assign(TIPS, {
   "Correlation": "How closely two names move together (1 = identical, 0 = unrelated).",
 });
 
+Object.assign(TIPS, {
+  "Support": "A price level where buyers have tended to step in and stop the fall.",
+  "Resistance": "A price level where sellers have tended to step in and stop the rise.",
+  "Bias": "The direction the evidence leans: bullish, bearish or neutral.",
+  "Thesis": "The plain-language case for taking (or avoiding) this trade.",
+  "Verdict": "The overall call for this symbol.",
+  "Levels": "Key prices to watch above and below the current price.",
+  "Fair value": "The price the model thinks the stock is really worth.",
+});
+
 /* surface any client error on the dashboard instead of failing silently */
 window.onerror = (msg, src, line) => {
   pushToast({ level: "error", msg: "JS: " + msg + " @" + (src || "").split("/").pop() + ":" + line });
