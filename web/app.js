@@ -240,6 +240,17 @@ const DESC_BY_ID = {
   llmState: ["Language model", TIPS["LLM"]],
 };
 
+Object.assign(DESC_BY_ID, {
+  modeBadge: ["Account mode", "Which account the bot trades: DEMO (fake money), PAPER, or LIVE (real money)."],
+  simBadge: ["Synthetic data", "Synthetic tick data is active because a real market feed is unavailable."],
+  connState: ["Connection", "How the dashboard reaches the bot: live socket, polling, or reconnecting."],
+  botState: ["Bot status", "Whether the trading bot is running or stopped."],
+  botToggle: ["Start / Stop", "Turn the trading bot on or off. Open positions stay until they close."],
+  scanInterval: ["Scan interval", "Seconds the bot waits between market scans."],
+  watchlist: ["Watchlist", "The symbols the bot may trade, separated by commas."],
+  applyCfg: ["Apply", "Save the watchlist and scan interval and push them to the bot."],
+});
+
 /* surface any client error on the dashboard instead of failing silently */
 window.onerror = (msg, src, line) => {
   pushToast({ level: "error", msg: "JS: " + msg + " @" + (src || "").split("/").pop() + ":" + line });
