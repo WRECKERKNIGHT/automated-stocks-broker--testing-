@@ -302,6 +302,73 @@ function findDescription(el) {
   return null;
 }
 
+/* Floating "description pane" shown while hovering any described element. */
+let _tipPane = null, _tipFor = null;
+function initHoverHints() {
+  if (_tipPane) return;
+  const pane = document.createElement("div");
+  pane.id = "tipPane";
+  pane.className = "tippane";
+  const tEl = document.createElement("div"); tEl.className = "tp-title";
+  const bEl = document.createElement("div"); bEl.className = "tp-body";
+  pane.append(tEl, bEl);
+  document.body.appendChild(pane);
+  _tipPane = pane;
+
+  const hide = () => {
+    pane.classList.remove("show");
+    if (_tipFor && _tipFor._savedTitle !== undefined) {
+      _tipFor.setAttribute("title", _tipFor._savedTitle);
+      delete _tipFor._savedTitle;
+    }
+    _tipFor = null;
+  };
+  const place = (el) => {
+    const r = el.getBoundingClientRect();
+    const pr = pane.getBoundingClientRect();
+    let x = r.left, y = r.bottom + 8;
+    if (y + pr.height > window.innerHeight - 6) y = r.top - pr.height - 8;
+    if (y < 6) y = 6;
+    if (x + pr.width > window.innerWidth - 6) x = window.innerWidth - pr.width - 6;
+    if (x < 6) x = 6;
+    pane.style.left = x + "px";
+    pane.style.top = y + "px";
+  };
+  const show = (el, info) => {
+    if (_tipFor === el && pane.classList.contains("show")) return;
+    if (_tipFor && _tipFor !== el && _tipFor._savedTitle !== undefined) {
+      _tipFor.setAttribute("title", _tipFor._savedTitle);
+      delete _tipFor._savedTitle;
+    }
+    _tipFor = el;
+    // suppress the browser's own tooltip while our pane is visible
+    const native = el.getAttribute("title");
+    if (native) { el._savedTitle = native; el.removeAttribute("title"); }
+    tEl.textContent = info.title || "";
+    tEl.style.display = info.title ? "" : "none";
+    bEl.textContent = info.body || "";
+    pane.classList.add("show");
+    place(el);
+  };
+
+  document.addEventListener("mouseover", (e) => {
+    let el = e.target, hit = null, info = null;
+    while (el && el !== document.body) {
+      info = findDescription(el);
+      if (info) { hit = el; break; }
+      el = el.parentElement;
+    }
+    if (hit && info) show(hit, info); else hide();
+  }, true);
+  document.addEventListener("mouseout", (e) => {
+    if (!pane.classList.contains("show")) return;
+    const to = e.relatedTarget;
+    if (_tipFor && to && (_tipFor === to || _tipFor.contains(to))) return;
+    hide();
+  }, true);
+  window.addEventListener("scroll", hide, true);
+}
+
 /* surface any client error on the dashboard instead of failing silently */
 window.onerror = (msg, src, line) => {
   pushToast({ level: "error", msg: "JS: " + msg + " @" + (src || "").split("/").pop() + ":" + line });
