@@ -35,7 +35,7 @@ class AlphaTracker:
         if self._cache and now - self._ts < ttl:
             return self._cache
 
-        rows = storage.recent_signal_outcomes(limit=3000)
+        rows = storage.recent_signal_outcomes(limit=3000, market=storage.get_market())
         lam = math.log(2.0) / max(1e-6, settings.alpha_half_life_days * 86400.0)
         agg: dict[str, list] = {}
         for r in rows:
@@ -59,10 +59,6 @@ class AlphaTracker:
         self._cache = out
         self._ts = now
         return out
-
-
-_tracker = AlphaTracker()
-
 
 def get_alpha_tracker() -> AlphaTracker:
     return _tracker
