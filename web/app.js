@@ -203,6 +203,16 @@ Object.assign(TIPS, {
   "Fair value": "The price the model thinks the stock is really worth.",
 });
 
+Object.assign(TIPS, {
+  "Bars": "How many past candles are used in the test.",
+  "Stride": "How many bars the walk-forward test steps forward each round.",
+  "Method": "Which regime engine the test uses (heuristic rules or an HMM model).",
+  "ATR": "Average True Range: how much the price typically moves per bar.",
+  "ATR×": "Stop distance as a multiple of ATR (bigger = wider stop).",
+  "MinConf": "Minimum confidence (0-1) required before a trade is allowed.",
+  "Saved runs": "Past walk-forward tests you can reload.",
+});
+
 /* surface any client error on the dashboard instead of failing silently */
 window.onerror = (msg, src, line) => {
   pushToast({ level: "error", msg: "JS: " + msg + " @" + (src || "").split("/").pop() + ":" + line });
