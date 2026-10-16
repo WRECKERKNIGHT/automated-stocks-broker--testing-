@@ -352,8 +352,7 @@ class TradingBot:
             r_now = (price - entry) * direction / risk0 if risk0 else 0.0
             hw = meta["high_water"]
             hw_r = (hw - entry) * direction / risk0 if risk0 else 0.0
-            be_r = self.limits.trail_after_r
-            scale_r = max(2.0, be_r + 0.5)
+            be_r = self.breakeven_r
 
             if (price - eff_stop) * direction <= 0:
                 exit_reason = "disaster stop" if grace else "stop out"
@@ -363,9 +362,10 @@ class TradingBot:
                 if r_now >= be_r:
                     meta["stop"] = (max(meta["stop"], entry) if direction > 0
                                     else min(meta["stop"], entry))
-                # 2) bank a third into strength - let the rest ride
-                if stage < 1 and r_now >= scale_r:
-                    if await self._scale_out(sym, p, price, 0.34, f"scale +{scale_r:.1f}R (runner rides)"):
+                # 2) optional partial scale - off by default. Patience: let it run.
+                if self.scale_out_r > 0 and stage < 1 and r_now >= self.scale_out_r:
+                    if await self._scale_out(sym, p, price, self.scale_out_frac,
+                                             f"scale +{self.scale_out_r:.1f}R (runner rides)"):
                         stage = 1
                 # 3) trail the runner from the high-water mark, never the noise
                 if hw_r >= be_r:
@@ -373,9 +373,24 @@ class TradingBot:
                     meta["stop"] = max(meta["stop"], trail) if direction > 0 else min(meta["stop"], trail)
                 meta["stage"] = stage
 
-            # intraday time cap: keep capital turning over - but never cut a runner.
-            if not exit_reason and age_min > self.max_hold_min and r_now < 0.5:
-                exit_reason = "time stop (flat - reclaim capital)"
+            # EOD flatten: this is an intraday desk - flat before the bell so an
+            # overnight gap cannot turn a managed trade into a disaster.
+            if not exit_reason and self.flatten_at_eod:
+                try:
+                    now_et = datetime.now(ET)
+                    if now_et.hour == 15 and now_et.minute >= 55:
+                        exit_reason = "EOD flatten"
+                except Exception:  # noqa: BLE001
+                    pass
+
+            # Patience (default): no clock-based exit at all - a position lives
+            # until its thesis breaks (structural stop / disaster / EOD flatten).
+            # The optional time-stop only reclaims capital from a trade that
+            # NEVER worked (high-water mark never reached +0.5R); a trade that
+            # made progress and pulled back is a runner being given room.
+            if (not exit_reason and self.time_stop_enabled
+                    and age_min > self.max_hold_min and r_now < 0.5 and hw_r < 0.5):
+                exit_reason = "time stop (never worked - reclaim capital)"
 
             if exit_reason:
                 await self._close_position(sym, p, price, exit_reason)
