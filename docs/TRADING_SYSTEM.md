@@ -356,9 +356,10 @@ capital)`, `flatten`, etc.
 | `ELITE_MIN_SCORE` | 0.45 | Minimum quality score to enter |
 | `ELITE_REQUIRE_TREND` | `true` | Veto trades against the HTF trend |
 | `ELITE_SESSION_FILTER` | `true` | Skip open-crash / closing-drift windows |
-| `STOP_GRACE_MIN` | 8 | Minutes the tight stop is suspended |
-| `DISASTER_STOP_PCT` | 0.008 | Disaster backstop as fraction of price |
-| `MAX_HOLD_MIN` | 360 | Time cap (flat trades only) |
+| `STOP_GRACE_MIN` | 45 | Minutes the tight stop is suspended |
+| `DISASTER_STOP_PCT` | 0.035 | Disaster backstop as fraction of price |
+| `MAX_HOLD_MIN` | 360 | Time cap (only if `TIME_STOP_ENABLED=true`) |
+| `TIME_STOP_ENABLED` | `false` | Clock-based exit off by default (patience) |
 | `REVENGE_COOLDOWN_MIN` | 45 | Per-symbol cool-down after a stop |
 | `STOP_GRACE_MULT` | 1.4 | Disaster distance as multiple of R |
 | `FLATTEN_ON_STOP` | `false` | Flatten all on shutdown |
