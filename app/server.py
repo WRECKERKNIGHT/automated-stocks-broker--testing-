@@ -163,6 +163,46 @@ async def status():
     return await state.bot.build_snapshot()
 
 
+async def _mode_payload() -> dict:
+    return {
+        "mode": settings.market(),
+        "broker": getattr(state.broker, "mode", ""),
+        "universe": storage.universe_count(),
+        "running": bool(getattr(state.bot, "running", False)),
+        "watchlist": settings.watchlist_for(),
+    }
+
+
+@app.get("/api/mode")
+async def get_mode():
+    return await _mode_payload()
+
+
+@app.post("/api/mode")
+async def switch_mode(req: ModeReq):
+    want = "forex" if str(req.mode).lower() == "forex" else "stocks"
+    if want == settings.market():
+        return {"ok": True, "changed": False, **(await _mode_payload())}
+    was_running = bool(getattr(state.bot, "running", False))
+    if was_running:
+        await state.bot.stop()
+    settings.market_mode = want
+    storage.set_market(want)
+    storage.set_setting("market_mode", want)
+    elite.set_market(want)
+    state.broker = get_broker(want)
+    try:
+        await universe.ensure_universe(state.broker, force=True)
+    except Exception:  # noqa: BLE001
+        pass
+    state.bot.apply_market(want, state.broker, settings.watchlist_for(want))
+    if was_running:
+        await state.bot.start()
+    payload = {"ok": True, "changed": True, **(await _mode_payload())}
+    await _broadcast({"type": "mode", "data": payload})
+    return payload
+
+
 @app.post("/api/train")
 async def train(req: TrainReq | None = None):
     """Warm up (train) the learning pipeline for a market."""
