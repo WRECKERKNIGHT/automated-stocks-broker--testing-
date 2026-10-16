@@ -518,3 +518,19 @@ def set_setting(key: str, value: str) -> None:
                   "ON CONFLICT(key) DO UPDATE SET value=excluded.value", (key, value))
         c.commit()
         c.close()
+
+
+# ----------------------------- open-position metadata -----------------------------
+
+def save_positions_meta(positions: dict[str, Any]) -> None:
+    """Persist the bot's in-memory stop/target/thesis map for open positions."""
+    set_setting("positions_meta", json.dumps(positions or {}, default=str))
+
+
+def load_positions_meta() -> dict[str, dict]:
+    raw = get_setting("positions_meta", "{}") or "{}"
+    try:
+        data = json.loads(raw)
+        return data if isinstance(data, dict) else {}
+    except (ValueError, TypeError):
+        return {}
