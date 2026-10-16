@@ -267,6 +267,41 @@ Object.assign(DESC_BY_ID, {
   tickerItems: ["Ticker", "A rolling strip of the symbols the bot watches and their latest prices."],
 });
 
+/* Work out what a hovered element is about. Returns {title, body} or null. */
+function findDescription(el) {
+  if (!el || el.nodeType !== 1 || !el.getAttribute) return null;
+  if (el.dataset && el.dataset.desc) {
+    return { title: el.dataset.descTitle || "", body: el.dataset.desc };
+  }
+  let key = el.getAttribute("data-tip") || "";
+  if (!key && el.childElementCount === 0) key = (el.textContent || "").trim();
+  if (!key && el.matches && (el.matches(".stat") || el.matches(".metric") || el.matches(".fld"))) {
+    const lab = el.querySelector("label");
+    if (lab) key = (lab.textContent || "").trim();
+  }
+  if (key && TIPS[key]) return { title: key, body: TIPS[key] };
+  if (el.id && DESC_BY_ID[el.id]) {
+    const d = DESC_BY_ID[el.id];
+    return { title: d[0], body: d[1] };
+  }
+  // table cells inherit the description of their column header
+  if (el.tagName === "TD" && el.parentNode) {
+    const table = el.closest("table");
+    if (table) {
+      const idx = Array.prototype.indexOf.call(el.parentNode.children, el);
+      const ths = table.querySelectorAll("thead th");
+      const th = ths[idx] || table.querySelectorAll("th")[idx];
+      if (th) {
+        const t = (th.textContent || "").trim();
+        if (TIPS[t]) return { title: t, body: TIPS[t] };
+      }
+    }
+  }
+  const titleAttr = el.getAttribute("title");
+  if (titleAttr) return { title: "", body: titleAttr };
+  return null;
+}
+
 /* surface any client error on the dashboard instead of failing silently */
 window.onerror = (msg, src, line) => {
   pushToast({ level: "error", msg: "JS: " + msg + " @" + (src || "").split("/").pop() + ":" + line });
