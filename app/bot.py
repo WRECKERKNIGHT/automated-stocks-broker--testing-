@@ -257,15 +257,29 @@ class TradingBot:
         return out
 
     def _recent_edge(self) -> tuple[float, float]:
-        trades = [t for t in storage.recent_trades(limit=60) if t.get("pnl") is not None]
-        if len(trades) < 10:
-            return 0.5, 2.0
+        """Win-rate and win/loss ratio for sizing, shrunk toward a neutral prior.
+
+        A handful of trades is statistically meaningless, so raw numbers from a
+        tiny (often noisy, losing) sample must not drive the bet sizing. We blend
+        the observed stats with a neutral prior (45% win rate, 1.5:1 payoff)
+        using a fixed pseudo-count, so the edge only takes over once enough
+        trades have accumulated. This prevents a 10-trade cold streak from
+        producing an absurd Kelly that idles the whole desk.
+        """
+        trades = [t for t in storage.recent_trades(limit=80) if t.get("pnl") is not None]
+        prior_n, prior_wp, prior_wlr = 20.0, 0.45, 1.5
+        n = len(trades)
+        if n == 0:
+            return prior_wp, prior_wlr
         wins = [t for t in trades if t["pnl"] > 0]
         losses = [t for t in trades if t["pnl"] < 0]
-        wp = len(wins) / len(trades)
-        avg_w = sum(t["pnl"] for t in wins) / len(wins) if wins else 1.0
-        avg_l = -sum(t["pnl"] for t in losses) / len(losses) if losses else 1.0
-        return wp, (avg_w / avg_l if avg_l else 2.0)
+        raw_wp = len(wins) / n
+        avg_w = sum(t["pnl"] for t in wins) / len(wins) if wins else 0.0
+        avg_l = -sum(t["pnl"] for t in losses) / len(losses) if losses else 0.0
+        raw_wlr = (avg_w / avg_l) if avg_l > 0 else prior_wlr
+        wp = (raw_wp * n + prior_wp * prior_n) / (n + prior_n)
+        wlr = (raw_wlr * n + prior_wlr * prior_n) / (n + prior_n)
+        return wp, max(0.1, wlr)
 
     async def _check_alerts(self) -> None:
         try:
@@ -312,6 +326,7 @@ class TradingBot:
                         "opened": time.time(), "high_water": price, "reason": "adopted",
                         "kelly": None, "atr": atr, "risk": 1.5 * atr}
                 self.positions[sym] = meta
+                self._persist_positions()
 
             meta["high_water"] = max(meta["high_water"], price) if direction > 0 else min(meta["high_water"], price)
             risk0 = meta.get("risk") or abs(entry - meta["stop"]) or (entry * 0.01)
