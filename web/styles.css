@@ -251,3 +251,6 @@ ul.tight{margin:4px 0;padding-left:18px} ul.tight li{margin:2px 0;color:var(--mu
   pointer-events:none;opacity:0;transform:translateY(3px);
   transition:opacity .1s ease,transform .1s ease;backdrop-filter:blur(4px)}
 .tippane.show{opacity:1;transform:none}
+.tippane .tp-title{font-weight:800;font-size:10.5px;letter-spacing:.7px;text-transform:uppercase;
+  color:var(--accent);margin-bottom:4px}
+.tippane .tp-title:empty{display:none;margin:0}
