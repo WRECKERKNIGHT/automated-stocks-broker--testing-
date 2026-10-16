@@ -245,6 +245,8 @@ async def optimize(req: OptimizeReq):
 
 @app.get("/api/market/bars")
 async def market_bars(symbol: str = "AAPL", timeframe: str = "5Min", limit: int = 300):
+    if timeframe not in ("1Min", "5Min", "15Min", "30Min", "1Hour", "1Day"):
+        timeframe = "5Min"
     df = await state.broker.get_bars(symbol, timeframe, limit)
     if df is None or df.empty:
         return JSONResponse({"error": "no data", "symbol": symbol}, status_code=404)
