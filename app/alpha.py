@@ -60,5 +60,14 @@ class AlphaTracker:
         self._ts = now
         return out
 
+    def reset(self) -> None:
+        """Invalidate the cache (e.g. after a market-mode switch)."""
+        self._cache = {}
+        self._ts = 0.0
+
+
+_tracker = AlphaTracker()
+
+
 def get_alpha_tracker() -> AlphaTracker:
     return _tracker
