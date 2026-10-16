@@ -108,8 +108,64 @@ _SECTOR_KEYWORDS = [
 ]
 
 
+# ---------------------------------------------------------------- forex ----
+# Grouped FX universe (majors / minors / metals / exotics) used when the merged
+# app runs in "forex" market mode. Sector == currency group.
+FX_MAJORS = ["EUR_USD", "GBP_USD", "USD_JPY", "USD_CHF", "USD_CAD", "AUD_USD", "NZD_USD"]
+FX_MINORS = [
+    "EUR_GBP", "EUR_JPY", "EUR_CHF", "EUR_AUD", "EUR_CAD", "EUR_NZD",
+    "GBP_JPY", "GBP_CHF", "GBP_AUD", "GBP_CAD", "GBP_NZD",
+    "AUD_JPY", "AUD_CAD", "AUD_CHF", "AUD_NZD", "CAD_JPY", "CAD_CHF",
+    "CHF_JPY", "NZD_JPY", "NZD_CAD", "NZD_CHF",
+]
+FX_METALS = ["XAU_USD", "XAG_USD", "XPT_USD", "XPD_USD"]
+FX_EXOTICS = [
+    "USD_MXN", "USD_ZAR", "USD_TRY", "USD_SEK", "USD_NOK", "USD_DKK",
+    "USD_PLN", "USD_HUF", "USD_CZK", "USD_SGD", "USD_HKD", "USD_CNH",
+    "USD_THB", "USD_INR", "USD_ILS",
+    "EUR_TRY", "EUR_SEK", "EUR_NOK", "EUR_PLN", "EUR_HUF", "EUR_CZK",
+    "EUR_SGD", "EUR_ZAR", "GBP_SEK", "GBP_NOK", "ZAR_JPY", "TRY_JPY",
+]
+_FX_GROUPS = {"Major": FX_MAJORS, "Minor": FX_MINORS, "Metal": FX_METALS, "Exotic": FX_EXOTICS}
+_FX_GROUP_OF: dict[str, str] = {s: g for g, syms in _FX_GROUPS.items() for s in syms}
+FX_FALLBACK: list[str] = sorted(
+    {s for syms in _FX_GROUPS.values() for s in syms}
+)
+_METAL_LEADS = {"XAU", "XAG", "XPT", "XPD", "XAUUSD", "XAGUSD"}
+_EXOTIC_CCY = {"MXN", "ZAR", "TRY", "SEK", "NOK", "DKK", "PLN", "HUF", "CZK",
+               "SGD", "HKD", "CNH", "THB", "INR", "ILS", "TWD", "KRW", "BRL"}
+
+
+def _looks_like_fx(symbol: str) -> bool:
+    sym = (symbol or "").upper().replace("/", "_")
+    if "_" in sym:
+        return True
+    return sym.endswith("=X") or sym in _METAL_LEADS
+
+
+def _classify_fx(symbol: str) -> str:
+    sym = (symbol or "").upper().replace("/", "_")
+    if sym in _FX_GROUP_OF:
+        return _FX_GROUP_OF[sym]
+    if sym in _METAL_LEADS or sym.endswith("=X") and sym[:3] in _METAL_LEADS:
+        return "Metal"
+    if "_" in sym:
+        base, _, quote = sym.partition("_")
+    else:
+        base, quote = sym[:3], sym[3:6]
+    if base in _EXOTIC_CCY or quote in _EXOTIC_CCY:
+        return "Exotic"
+    majors = {"EUR", "USD", "GBP", "JPY", "CHF", "CAD", "AUD", "NZD"}
+    if base == "USD" or quote == "USD":
+        if base in majors and quote in majors:
+            return "Major"
+    return "Minor"
+
+
 def classify(symbol: str, name: str | None = None) -> str:
     sym = (symbol or "").upper()
+    if "_" in sym or sym.endswith("=X"):
+        return _classify_fx(sym)
     if sym in SECTOR_MAP:
         return SECTOR_MAP[sym]
     nm = (name or "").lower()
@@ -194,8 +250,17 @@ def load_fallback() -> int:
 
 
 async def ensure_universe(broker: Broker, *, force: bool = False) -> int:
-    """Populate the universe cache if empty (or when forced)."""
-    if force or storage.universe_count() == 0:
+    """Populate the universe cache if empty (or when forced).
+
+    The cache is market-specific: switching modes swaps the symbol set so the
+    dashboard, scanner and sector breakdown always reflect the active market.
+    """
+    from .config import settings
+    if settings.market() == "forex":
+        if force or storage.universe_count() == 0 or not is_fx_universe():
+            return load_fx_fallback()
+        return storage.universe_count()
+    if force or storage.universe_count() == 0 or is_fx_universe():
         n = 0
         try:
             n = await load_from_alpaca(broker)
