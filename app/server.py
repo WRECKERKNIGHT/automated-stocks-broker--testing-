@@ -303,6 +303,30 @@ async def stats_overall():
     return stats.compute_stats(storage.all_trades(), storage.equity_series(limit=20000))
 
 
+@app.get("/api/stats/combined")
+async def stats_combined():
+    """Combined performance broken down by market (stocks / forex / total)."""
+
+    def block(mk: str) -> dict:
+        trades = storage.all_trades(mk)
+        series = storage.equity_series(limit=20000, market=mk)
+        out = stats.compute_stats(trades, series)
+        out["trades"] = len(trades)
+        out["market"] = mk
+        last = series[-1] if series else None
+        out["equity"] = round(float(last["equity"]), 2) if last and last.get("equity") is not None else 0.0
+        return out
+
+    all_trades = storage.all_trades()
+    total_series = storage.equity_series(limit=20000)
+    total = stats.compute_stats(all_trades, total_series)
+    total["trades"] = len(all_trades)
+    total["market"] = "all"
+    total["equity"] = (round(float(total_series[-1]["equity"]), 2)
+                       if total_series and total_series[-1].get("equity") is not None else 0.0)
+    return {"total": total, "stocks": block("stocks"), "forex": block("forex")}
+
+
 @app.get("/api/stats/daily")
 async def stats_daily(limit: int = 60):
     return storage.daily_stats_series(limit=limit)
