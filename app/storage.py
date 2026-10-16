@@ -12,6 +12,10 @@ from .config import DATA_DIR
 DB_PATH = DATA_DIR / "aitrader.db"
 _lock = threading.RLock()
 
+# Active market context ("stocks" | "forex"). Writers stamp this onto each row
+# so the combined stats page can break performance down by market.
+_market = "stocks"
+
 
 def _conn() -> sqlite3.Connection:
     c = sqlite3.connect(DB_PATH, check_same_thread=False, timeout=30)
@@ -39,7 +43,8 @@ CREATE TABLE IF NOT EXISTS decisions (
     llm TEXT,
     executed INTEGER DEFAULT 0,
     order_id TEXT,
-    error TEXT
+    error TEXT,
+    market TEXT
 );
 CREATE TABLE IF NOT EXISTS trades (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -53,7 +58,8 @@ CREATE TABLE IF NOT EXISTS trades (
     pnl_pct REAL,
     reason TEXT,
     tags TEXT,
-    order_id TEXT
+    order_id TEXT,
+    market TEXT
 );
 CREATE TABLE IF NOT EXISTS equity (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -62,7 +68,8 @@ CREATE TABLE IF NOT EXISTS equity (
     cash REAL,
     buying_power REAL,
     positions_value REAL,
-    day_pnl REAL
+    day_pnl REAL,
+    market TEXT
 );
 CREATE TABLE IF NOT EXISTS daily_stats (
     date TEXT PRIMARY KEY,
@@ -125,7 +132,8 @@ CREATE TABLE IF NOT EXISTS signal_outcomes (
     regime TEXT,
     pnl REAL,
     ret REAL,
-    win INTEGER
+    win INTEGER,
+    market TEXT
 );
 CREATE TABLE IF NOT EXISTS universe (
     symbol TEXT PRIMARY KEY,
@@ -198,6 +206,12 @@ def _migrate(c: sqlite3.Connection) -> None:
     dcols = {r["name"] for r in c.execute("PRAGMA table_info(daily_stats)").fetchall()}
     if "realized_pnl" not in dcols:
         c.execute("ALTER TABLE daily_stats ADD COLUMN realized_pnl REAL")
+    # market-mode merge: tag every historical row as stocks (the pre-merge default)
+    for table in ("decisions", "trades", "equity", "signal_outcomes"):
+        tcols = {r["name"] for r in c.execute(f"PRAGMA table_info({table})").fetchall()}
+        if "market" not in tcols:
+            c.execute(f"ALTER TABLE {table} ADD COLUMN market TEXT")
+            c.execute(f"UPDATE {table} SET market='stocks' WHERE market IS NULL")
 
 
 def _insert(table: str, row: dict[str, Any]) -> int:
@@ -228,6 +242,7 @@ def log_decision(d: dict[str, Any]) -> int:
         if k in d and not isinstance(d[k], str):
             d[k] = json.dumps(d[k], default=str)
     d.setdefault("ts", time.time())
+    d.setdefault("market", _market)
     return _insert("decisions", d)
 
 
@@ -236,12 +251,14 @@ def log_trade(t: dict[str, Any]) -> int:
     if "tags" in t and not isinstance(t["tags"], str):
         t["tags"] = json.dumps(t["tags"], default=str)
     t.setdefault("ts", time.time())
+    t.setdefault("market", _market)
     return _insert("trades", t)
 
 
 def log_equity(e: dict[str, Any]) -> int:
     e = dict(e)
     e.setdefault("ts", time.time())
+    e.setdefault("market", _market)
     return _insert("equity", e)
 
 
@@ -289,20 +306,22 @@ def cache_news(items: list[dict[str, Any]]) -> None:
 # ----------------------------- signal outcomes -----------------------------
 
 def log_signal_outcomes(symbol: str, signals: list[str], pnl: float, ret: float,
-                        regime: str | None = None, ts: float | None = None) -> None:
+                        regime: str | None = None, ts: float | None = None,
+                        market: str | None = None) -> None:
     """Attribute a realised trade to each signal that was active at entry."""
     sigs = [s for s in (signals or []) if s]
     if not sigs:
         return
     ts = ts or time.time()
     win = 1 if pnl > 0 else 0
+    mk = market or _market
     with _lock:
         c = _conn()
         for s in sigs:
             c.execute(
-                "INSERT INTO signal_outcomes (ts, symbol, signal, regime, pnl, ret, win) "
-                "VALUES (?,?,?,?,?,?,?)",
-                (ts, symbol, s, regime, float(pnl), float(ret), win),
+                "INSERT INTO signal_outcomes (ts, symbol, signal, regime, pnl, ret, win, market) "
+                "VALUES (?,?,?,?,?,?,?,?)",
+                (ts, symbol, s, regime, float(pnl), float(ret), win, mk),
             )
         c.commit()
         c.close()
@@ -336,22 +355,55 @@ def save_optimize_run(symbol: str, timeframe: str, method: str, bar_limit: int,
 
 # ----------------------------- readers -----------------------------
 
-def recent_decisions(limit: int = 100, symbol: str | None = None) -> list[dict]:
+def recent_decisions(limit: int = 100, symbol: str | None = None,
+                     market: str | None = None) -> list[dict]:
+    sql, params = "SELECT * FROM decisions", []
+    conds = []
     if symbol:
-        return _query("SELECT * FROM decisions WHERE symbol=? ORDER BY ts DESC LIMIT ?", (symbol, limit))
-    return _query("SELECT * FROM decisions ORDER BY ts DESC LIMIT ?", (limit,))
+        conds.append("symbol=?")
+        params.append(symbol)
+    if market:
+        conds.append("market=?")
+        params.append(market)
+    if conds:
+        sql += " WHERE " + " AND ".join(conds)
+    sql += " ORDER BY ts DESC LIMIT ?"
+    params.append(limit)
+    return _query(sql, tuple(params))
 
 
-def recent_trades(limit: int = 200, since: float | None = None) -> list[dict]:
+def recent_trades(limit: int = 200, since: float | None = None,
+                  market: str | None = None) -> list[dict]:
+    sql, params = "SELECT * FROM trades", []
+    conds = []
     if since:
-        return _query("SELECT * FROM trades WHERE ts>=? ORDER BY ts DESC LIMIT ?", (since, limit))
-    return _query("SELECT * FROM trades ORDER BY ts DESC LIMIT ?", (limit,))
+        conds.append("ts>=?")
+        params.append(since)
+    if market:
+        conds.append("market=?")
+        params.append(market)
+    if conds:
+        sql += " WHERE " + " AND ".join(conds)
+    sql += " ORDER BY ts DESC LIMIT ?"
+    params.append(limit)
+    return _query(sql, tuple(params))
 
 
-def equity_series(since: float | None = None, limit: int = 5000) -> list[dict]:
+def equity_series(since: float | None = None, limit: int = 5000,
+                  market: str | None = None) -> list[dict]:
+    sql, params = "SELECT * FROM equity", []
+    conds = []
     if since:
-        return _query("SELECT * FROM equity WHERE ts>=? ORDER BY ts ASC LIMIT ?", (since, limit))
-    return _query("SELECT * FROM equity ORDER BY ts ASC LIMIT ?", (limit,))
+        conds.append("ts>=?")
+        params.append(since)
+    if market:
+        conds.append("market=?")
+        params.append(market)
+    if conds:
+        sql += " WHERE " + " AND ".join(conds)
+    sql += " ORDER BY ts ASC LIMIT ?"
+    params.append(limit)
+    return _query(sql, tuple(params))
 
 
 def daily_stats_series(limit: int = 400) -> list[dict]:
@@ -364,11 +416,19 @@ def recent_news(limit: int = 60, since: float | None = None) -> list[dict]:
     return _query("SELECT * FROM news ORDER BY ts DESC LIMIT ?", (limit,))
 
 
-def all_trades() -> list[dict]:
+def all_trades(market: str | None = None) -> list[dict]:
+    if market:
+        return _query("SELECT * FROM trades WHERE market=? ORDER BY ts ASC", (market,))
     return _query("SELECT * FROM trades ORDER BY ts ASC")
 
 
-def recent_signal_outcomes(limit: int = 3000) -> list[dict]:
+def recent_signal_outcomes(limit: int = 3000, market: str | None = None) -> list[dict]:
+    if market:
+        return _query(
+            "SELECT ts, symbol, signal, regime, pnl, ret, win FROM signal_outcomes "
+            "WHERE market=? ORDER BY ts DESC LIMIT ?",
+            (market, limit),
+        )
     return _query(
         "SELECT ts, symbol, signal, regime, pnl, ret, win FROM signal_outcomes "
         "ORDER BY ts DESC LIMIT ?",
@@ -522,15 +582,3 @@ def set_setting(key: str, value: str) -> None:
 
 # ----------------------------- open-position metadata -----------------------------
 
-def save_positions_meta(positions: dict[str, Any]) -> None:
-    """Persist the bot's in-memory stop/target/thesis map for open positions."""
-    set_setting("positions_meta", json.dumps(positions or {}, default=str))
-
-
-def load_positions_meta() -> dict[str, dict]:
-    raw = get_setting("positions_meta", "{}") or "{}"
-    try:
-        data = json.loads(raw)
-        return data if isinstance(data, dict) else {}
-    except (ValueError, TypeError):
-        return {}
