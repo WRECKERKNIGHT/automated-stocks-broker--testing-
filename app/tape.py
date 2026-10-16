@@ -183,13 +183,16 @@ class TapeFeed:
             except asyncio.CancelledError:
                 break
             except Exception as e:  # noqa: BLE001
+                msg = str(e) or e.__class__.__name__
                 if settings.real_data_only and settings.alpaca_enabled:
                     # integrity policy: never fake prices in a real-key session.
-                    self.log.append(f"tape error: {e} (real-data-only: NOT using synthetic)")
-                    self.last_error = str(e)
-                    await asyncio.sleep(3)
+                    self.log.append(f"tape error: {msg} (real-data-only: NOT using synthetic)")
+                    self.last_error = msg
+                    # back off so the single allowed IEX socket is fully released
+                    # before we reconnect (the free feed permits one connection).
+                    await asyncio.sleep(5)
                 else:
-                    self.log.append(f"tape error: {e} -> demo fallback")
+                    self.log.append(f"tape error: {msg} -> demo fallback")
                     self.demo = True
                     await asyncio.sleep(2)
 
@@ -197,16 +200,28 @@ class TapeFeed:
     async def _run_alpaca(self) -> None:
         import websockets
 
+        # NOTE: the free IEX feed permits a single concurrent market-data socket
+        # per account. We must validate the handshake (a 406 "connection limit
+        # exceeded" was previously swallowed, leaving a dead unauthenticated
+        # socket holding the only slot), and treat a quiet tape as normal rather
+        # than reconnecting into the connection limit.
         url = f"wss://stream.data.alpaca.markets/v2/{settings.data_feed}"
         async with websockets.connect(url, ping_interval=20, max_size=2**23) as ws:
             self._ws = ws
             self.log.append("alpaca tape connected")
+            await self._ws_expect(ws, timeout=10)  # {"T":"success","msg":"connected"}
             await ws.send(json.dumps({"action": "auth", "key": settings.alpaca_key,
                                       "secret": settings.alpaca_secret}))
-            await ws.recv()
+            err = _first_error(await self._ws_expect(ws, timeout=10))
+            if err is not None:
+                raise RuntimeError(f"auth rejected: {err}")
+            self.log.append("alpaca tape authenticated")
             await self._subscribe(ws)
             while self.running:
-                raw = await asyncio.wait_for(ws.recv(), timeout=30)
+                try:
+                    raw = await asyncio.wait_for(ws.recv(), timeout=60)
+                except asyncio.TimeoutError:
+                    continue  # no prints (quiet tape) - keep the socket alive
                 for m in json.loads(raw):
                     T = m.get("T")
                     if T == "t":
@@ -214,8 +229,18 @@ class TapeFeed:
                     elif T == "q":
                         self._on_quote(m["S"], float(m["bp"]), float(m["ap"]),
                                        float(m["bs"]), float(m["as"]))
+                    elif T == "error":
+                        self.last_error = str(m.get("msg"))
+                        self.log.append(f"tape feed error {m.get('code')}: {m.get('msg')}")
                 await self._maybe_broadcast()
         self._ws = None
+
+    async def _ws_expect(self, ws, timeout: float):
+        raw = await asyncio.wait_for(ws.recv(), timeout=timeout)
+        try:
+            return json.loads(raw)
+        except (ValueError, TypeError):
+            return raw
 
     async def _subscribe(self, ws) -> None:
         await ws.send(json.dumps({"action": "subscribe", "trades": self.symbols,
