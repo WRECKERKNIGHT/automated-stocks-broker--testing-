@@ -243,3 +243,11 @@ ul.tight{margin:4px 0;padding-left:18px} ul.tight li{margin:2px 0;color:var(--mu
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:#1e2836;border-radius:5px}
 ::-webkit-scrollbar-thumb:hover{background:#2b3a4d}
+
+/* ---------------- hover description pane ---------------- */
+.tippane{position:fixed;z-index:120;top:0;left:0;max-width:300px;padding:9px 12px 10px;
+  background:rgba(12,16,21,.97);border:1px solid var(--accent-line);border-radius:10px;
+  box-shadow:0 16px 44px rgba(0,0,0,.62);font-size:12px;line-height:1.45;color:#cfd8e3;
+  pointer-events:none;opacity:0;transform:translateY(3px);
+  transition:opacity .1s ease,transform .1s ease;backdrop-filter:blur(4px)}
+.tippane.show{opacity:1;transform:none}
