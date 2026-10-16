@@ -632,7 +632,6 @@ class TradingBot:
                 self._log("error", f"order failed {sym}: {e}")
                 continue
 
-            direction = ctx["direction"]
             self.positions[sym] = {
                 "stop": ctx["stop"], "target": ctx["target"], "opened": time.time(),
                 "high_water": ctx["entry"], "reason": ", ".join(s["name"] for s in ctx["signals"]),
@@ -643,6 +642,8 @@ class TradingBot:
                 "risk": abs(ctx["entry"] - ctx["stop"]) or ctx["entry"] * 0.01,
                 "thesis": ctx.get("thesis"),
             }
+            side_counts[direction] = side_counts.get(direction, 0) + 1
+            self._persist_positions()
             decision_row.update({"executed": 1, "qty": qty, "order_id": order.get("id")})
             decision_row["features"] = {**ctx["features"], "sizing": ctx["sizing"],
                                         "mtf_mult": ctx.get("mtf_mult"),
@@ -751,9 +752,8 @@ class TradingBot:
             "tracked": [
                 {"symbol": k, "stop": v["stop"], "target": v["target"],
                  "opened": v["opened"], "reason": v["reason"],
-                 "thesis": v.get("thesis"),
+                 "thesis": v.get("thesis"), "risk": v.get("risk"),
                  "stage": v.get("stage", 0), "high_water": v.get("high_water")}
-                for k, v in self.positions.items()
                 for k, v in self.positions.items()
             ],
         }
