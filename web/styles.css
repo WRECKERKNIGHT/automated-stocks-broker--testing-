@@ -254,3 +254,32 @@ ul.tight{margin:4px 0;padding-left:18px} ul.tight li{margin:2px 0;color:var(--mu
 .tippane .tp-title{font-weight:800;font-size:10.5px;letter-spacing:.7px;text-transform:uppercase;
   color:var(--accent);margin-bottom:4px}
 .tippane .tp-title:empty{display:none;margin:0}
+
+/* ---------------- market drawer (stocks ⇄ forex) ---------------- */
+.btn.market{border-color:var(--accent-line);color:var(--accent2);font-weight:700}
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:90;backdrop-filter:blur(1px)}
+.drawer{position:fixed;top:0;right:0;height:100vh;width:360px;max-width:92vw;z-index:100;
+  background:linear-gradient(180deg,var(--panel2),var(--panel));border-left:1px solid var(--border2);
+  box-shadow:-24px 0 60px rgba(0,0,0,.6);display:flex;flex-direction:column;
+  transform:translateX(0);transition:transform .22s ease}
+.drawer.hidden{display:none!important}
+.drawer:not(.hidden){animation:drawerin .22s ease}
+@keyframes drawerin{from{transform:translateX(24px);opacity:.4}to{transform:none;opacity:1}}
+.drawerHead{display:flex;align-items:center;gap:8px;padding:14px 16px;border-bottom:1px solid var(--border);
+  font-size:13px;letter-spacing:.4px;text-transform:uppercase;color:var(--accent2)}
+.drawerBody{padding:14px 16px;overflow:auto;display:flex;flex-direction:column;gap:14px}
+.mcards{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mcard{border:1px solid var(--border2);border-radius:var(--radius);padding:12px;cursor:pointer;
+  background:linear-gradient(180deg,var(--panel2),var(--panel));transition:border-color .15s,transform .1s}
+.mcard:hover{transform:translateY(-1px);border-color:#33414f}
+.mcard.active{border-color:var(--accent-line);box-shadow:0 0 0 1px var(--accent-soft) inset,0 8px 24px rgba(0,0,0,.35)}
+.mcard .mname{font-weight:800;font-size:14px;margin-bottom:2px}
+.mcard .mbroker{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+.mcard .mdesc{font-size:11px;color:var(--muted);margin-top:7px;line-height:1.4}
+.mcard .mtag{display:inline-block;margin-top:8px;font-size:10px;padding:2px 7px;border-radius:999px;
+  border:1px solid var(--border2);color:var(--muted)}
+.mcard.active .mtag{border-color:var(--accent-line);color:var(--accent2)}
+.drawerTrain{display:flex;align-items:center;gap:10px;justify-content:space-between;
+  border:1px solid var(--border);border-radius:var(--radius);padding:12px;background:var(--panel2)}
+.btn.wide{width:100%;justify-content:center}
+.badge-medal{font-size:11px;color:var(--dim)}
