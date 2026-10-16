@@ -32,6 +32,151 @@ const fmtVol = (v) =>
 const ago = (ts) => (ts ? tstr(ts) : "");
 const toast = (msg) => pushToast({ level: "info", msg });
 
+/* Plain-language explainer for every label/term. Hover any label to see it.
+   Keyed by the exact visible text of the element. */
+const TIPS = {
+  /* top bar */
+  "Equity": "Your total account value right now = cash + value of open positions. This is your real score.",
+  "Day": "Profit or loss since today's session opened (green = up, red = down).",
+  "BP": "Buying Power: how much the broker lets you deploy. It includes borrowed money (leverage), so it is NOT your cash.",
+  "Pos": "How many positions are open right now.",
+  "Mkt": "Whether the US stock market is open or closed.",
+  "Universe": "How many symbols the bot is watching.",
+  "LLM": "Whether an AI language model helps analyse the market, or it is just rules.",
+  "Start Bot": "Turn the trading bot on.",
+  "Stop Bot": "Turn the trading bot off (open positions stay until closed).",
+  /* chart toolbar */
+  "🔎": "Research this symbol in depth.",
+  "⤢ focus": "Focus mode: hide the side panels and enlarge the chart.",
+  "⤢ exit": "Leave focus mode and show the panels again.",
+  "◎ follow": "Chart automatically follows the bot's biggest open trade.",
+  "1m": "Each candle = 1 minute of price action.",
+  "5m": "Each candle = 5 minutes of price action.",
+  "15m": "Each candle = 15 minutes of price action.",
+  "1H": "Each candle = 1 hour of price action.",
+  "1D": "Each candle = 1 day of price action.",
+  /* side tabs */
+  "Positions": "Your open trades and their live profit/loss.",
+  "Orders": "Every order the bot has sent to the broker.",
+  "Tape": "The live order book (best bid/ask) plus recent trade prints.",
+  "News": "Latest headlines, each with a sentiment score (+ good, − bad).",
+  "Log": "The bot's running diary of actions, trades and errors.",
+  /* left rail */
+  "Terminal": "Live decision log — what the bot is thinking and why.",
+  "Scanner": "Find the market's biggest gainers, losers and most active names.",
+  "Research": "A full dossier on one stock: trend, levels, news, thesis and risks.",
+  "Ideas": "Trade candidates the bot likes right now, with entry/stop/target.",
+  "Portfolio": "Risk view: exposure, concentration, correlation and sector allocation.",
+  "Journal": "Your personal trade notes and lessons.",
+  "Alerts": "Price/volume triggers you set; the bot pings you when they fire.",
+  "Coach": "A trading playbook of principles that fit the current market.",
+  "Library": "Lessons distilled from 100+ trading books.",
+  "Pulse": "Market pulse: news wire, breadth and worth-watching talks.",
+  "Equity": "Your account value over time (the equity curve).",
+  "Trades": "All your closed (finished) trades with their results.",
+  "Daily": "Day-by-day performance summary.",
+  "Mind": "The bot's discipline: mood, win/loss streaks, cooldowns and guards.",
+  "Today": "Today's stats at a glance.",
+  "Backtest": "Test a strategy on past data to see if it would have worked.",
+  "Optimize": "Walk-forward test: checks whether an edge is real or just curve-fit.",
+  "Depth": "Liquidity heatmap: green = buy orders, red = sell orders, over price × time.",
+  /* table headers */
+  "Symbol": "Ticker of the stock.",
+  "Sector": "Industry group the stock belongs to.",
+  "Qty": "Number of shares. Negative = a short position.",
+  "Entry": "The average price the position was opened at.",
+  "Last": "The most recent traded price.",
+  "Mkt Val": "Current value of the position. Negative when you are short.",
+  "Mkt val": "Current value of the position. Negative when you are short.",
+  "Weight": "This position as a percentage of your equity.",
+  "P&L": "Profit or loss for this row (green = gain, red = loss).",
+  "Realized": "Profit already locked in by closing trades (does not include open ones).",
+  "%": "The profit/loss shown as a percentage.",
+  "Time": "When this happened.",
+  "Date": "The trading day.",
+  "Start": "Account equity at the start of the day.",
+  "End": "Account equity at the end of the day.",
+  "Tr": "Number of trades that day.",
+  "Side": "Direction of the order: buy or sell.",
+  "Type": "Order type (e.g. market = fill immediately, limit = only at a set price).",
+  "Status": "Whether the order filled, is pending, or was cancelled.",
+  "Fill": "The average price the order actually filled at.",
+  "Action": "What the bot decided: BUY, SELL or HOLD.",
+  "Conf": "Confidence in the decision, from 0% to 100%.",
+  "Regime": "Market state the bot sees (trend up, range, risk-off, etc.).",
+  "Exec": "✓ = the decision became a real order; — = it was filtered out.",
+  "Reasoning": "Why the bot made this decision.",
+  "RR": "Reward-to-risk ratio: how much you stand to gain versus what you risk.",
+  "Stop": "Stop price: where the trade exits automatically to limit a loss.",
+  "Target": "Target price: where the trade takes profit.",
+  "Signals": "Which strategy signals fired for this idea.",
+  "%Chg": "Percentage change in price today.",
+  "RelVol": "Relative volume: today's volume versus its normal (1.0x = average).",
+  "Vol": "Number of shares traded.",
+  "RSI": "Momentum gauge. Above 70 = overbought, below 30 = oversold.",
+  "ADX": "Trend-strength gauge. Higher = a stronger trend.",
+  "ATR%": "Average daily range as a percentage of price (how jumpy it is).",
+  "Trend": "Whether price is trending up, down, or sideways.",
+  "Conditions": "The rule this alert watches.",
+  /* metrics */
+  "Win Rate": "Percentage of trades that made money.",
+  "Win rate": "Percentage of trades that made money.",
+  "Win%": "Percentage of trades that made money.",
+  "Profit Factor": "Total winnings ÷ total losses. Above 1 means profitable overall.",
+  "Profit factor": "Total winnings ÷ total losses. Above 1 means profitable overall.",
+  "PF": "Profit factor: total winnings ÷ total losses. Above 1 = profitable.",
+  "Expectancy": "Average profit (or loss) you can expect per trade.",
+  "Exp": "Expectancy: average profit or loss per trade.",
+  "Avg Win": "The average size of your winning trades.",
+  "Avg win": "The average size of your winning trades.",
+  "Avg Loss": "The average size of your losing trades.",
+  "Avg loss": "The average size of your losing trades.",
+  "Max DD": "Max drawdown: the biggest drop from a peak in account value.",
+  "MaxDD": "Max drawdown: the biggest drop from a peak in account value.",
+  "Sharpe": "Return earned per unit of risk taken. Higher is better.",
+  "Best": "The symbol that made the most money.",
+  "Worst": "The symbol that lost the most money.",
+  "Trades": "Number of trades.",
+  "Cash": "Uninvested cash. It can look large when short — that money isn't really yours.",
+  "Gross exp": "Total position value (longs + shorts) as a % of equity.",
+  "Net exp": "Longs minus shorts as a % of equity (directional exposure).",
+  "Open pos": "How many positions are open.",
+  "HHI": "Concentration score. Higher = a few positions carry most of the risk.",
+  "Top weight": "Your single biggest position as a % of equity.",
+  "Top-3": "Your three biggest positions combined as a % of equity.",
+  "Mood": "The bot's emotional state (calm, confident, frustrated, tilted...).",
+  "Size mult": "How much the bot scales trade size right now (it shrinks when stressed).",
+  "Trading IQ": "A combined discipline score built from the bot's recent behaviour.",
+  "Discipline": "How well the bot is sticking to its rules.",
+  "Trades seen": "Total trades the psychology layer has watched.",
+  "Loss streak": "How many losses in a row.",
+  "Win streak": "How many wins in a row.",
+  "Drawdown": "How far below the peak account value you currently are.",
+  "Peak profit": "Best profit level reached today.",
+  "Protect floor": "The equity level the bot won't let you fall back below.",
+  "Cooldown": "Time the bot is sitting out after losses.",
+  "Day P&L": "The account's profit or loss for today.",
+  "Universe": "How many symbols the bot is watching.",
+  /* tape */
+  "VWAP": "Volume-weighted average price: the average price everyone paid.",
+  "Buy Vol": "Volume traded on the buy side.",
+  "Sell Vol": "Volume traded on the sell side.",
+  "Cum Δ": "Cumulative delta: net buying minus selling pressure.",
+  /* depth */
+  "ASK": "The lowest price a seller will accept right now.",
+  "BID": "The highest price a buyer will offer right now.",
+};
+
+function applyTips(root) {
+  const scope = root || document;
+  scope.querySelectorAll("[data-tip], label, th, button, .railbtn, .tab").forEach((el) => {
+    if (el.dataset.tipApplied) return;
+    const key = (el.getAttribute("data-tip") || el.textContent || "").trim();
+    const t = TIPS[key];
+    if (t) { el.setAttribute("title", t); el.dataset.tipApplied = "1"; }
+  });
+}
+
 /* surface any client error on the dashboard instead of failing silently */
 window.onerror = (msg, src, line) => {
   pushToast({ level: "error", msg: "JS: " + msg + " @" + (src || "").split("/").pop() + ":" + line });
