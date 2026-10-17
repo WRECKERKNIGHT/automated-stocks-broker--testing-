@@ -364,3 +364,18 @@ capital)`, `flatten`, etc.
 | `STOP_GRACE_MULT` | 1.4 | Disaster distance as multiple of R |
 | `FLATTEN_ON_STOP` | `false` | Flatten all on shutdown |
 | `LLM_PROVIDER` | `none` | Optional narrative layer |
+
+## Market modes (Stocks / Forex)
+
+The engine trades a single market at a time. **Stocks** mode routes to the
+Alpaca paper broker; **Forex** mode (`MARKET_MODE=forex`, or the dashboard
+drawer) routes to a free public price feed with simulated fills - real
+candles, synthetic execution - so it needs no forex broker credentials.
+Session gates adapt (24/5 for FX), the warm-up (**Train**) routine pre-fits
+each symbol's regime model, and every decision/trade/equity row carries a
+`market` column so the Overall page can aggregate stocks + forex together.
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `MARKET_MODE` | `stocks` | Active market: `stocks` or `forex` |
+| `FOREX_WATCHLIST` | 14 major/minor/metal pairs | FX universe in forex mode |
