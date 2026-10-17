@@ -88,3 +88,14 @@ python tests\smoke_api.py
 python tests\smoke_market.py
 python tests\smoke_psyche.py
 ```
+
+## Market modes: Stocks and Forex
+
+AI Trader trades one market at a time and can switch live from the dashboard
+drawer (the **Stocks / Forex** button). Stock mode uses the Alpaca paper
+broker; Forex mode uses a free public price feed with simulated order fills,
+so no forex broker keys are required. Both modes share the same SQLite store,
+so the **Overall** tab shows combined stats across every market. The drawer
+can also warm up the learning pipeline for the new universe (**Train**).
+
+Key settings: `MARKET_MODE` (`stocks` default), `FOREX_WATCHLIST`.
