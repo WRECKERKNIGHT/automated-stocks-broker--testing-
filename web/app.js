@@ -1401,6 +1401,36 @@ function updateMarketButton(mode) {
   if (b) b.classList.toggle("active", mode === "forex");
 }
 
+async function loadOverall() {
+  const el = $("overallBody");
+  if (!el) return;
+  el.innerHTML = '<p class="muted">Loading combined performance…</p>';
+  let d;
+  try { d = await fetch("/api/stats/combined").then((r) => r.json()); }
+  catch (e) { el.innerHTML = '<p class="neg">Failed to load combined stats.</p>'; return; }
+  const card = (title, s) => {
+    if (!s) return "";
+    const rows = [
+      ["Trades", s.num_trades],
+      ["Win rate", pct(s.win_rate)],
+      ["Total P&L", `<span class="${cls(s.total_pnl)}">${money(s.total_pnl)}</span>`],
+      ["Expectancy", money(s.expectancy)],
+      ["Profit factor", s.profit_factor === 999 ? "∞" : s.profit_factor],
+      ["Max drawdown", `${money(s.max_drawdown)} (${pct(s.max_drawdown_pct)})`],
+      ["Sharpe", s.sharpe],
+      ["Best", s.best_symbol ? esc(s.best_symbol) : "—"],
+      ["Worst", s.worst_symbol ? esc(s.worst_symbol) : "—"],
+      ["Equity", money(s.equity)],
+    ];
+    return `<div class="ovcard"><h4>${title}</h4>` +
+      rows.map(([k, v]) => `<div class="ovrow"><span>${k}</span><b>${v}</b></div>`).join("") +
+      `</div>`;
+  };
+  el.innerHTML =
+    `<div class="ovhead"><h3>Combined book</h3>
+      <div class="muted small">Performance across every market the bot trades — plus each side on its own.</div></div>
+     <div class="ovcols">${card("Total · all markets", d.total)}${card("Stocks", d.stocks)}${card("Forex", d.forex)}</div>`;
+}
 window.openDrawer = openDrawer;
 
 /* ---------------- scanner ---------------- */
