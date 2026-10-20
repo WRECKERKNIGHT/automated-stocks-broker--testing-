@@ -279,6 +279,7 @@ ul.tight{margin:4px 0;padding-left:18px} ul.tight li{margin:2px 0;color:var(--mu
 .mcard .mtag{display:inline-block;margin-top:8px;font-size:10px;padding:2px 7px;border-radius:999px;
   border:1px solid var(--border2);color:var(--muted)}
 .mcard.active .mtag{border-color:var(--accent-line);color:var(--accent2)}
+.mcard.busy{opacity:.5;cursor:progress}
 .drawerTrain{display:flex;align-items:center;gap:10px;justify-content:space-between;
   border:1px solid var(--border);border-radius:var(--radius);padding:12px;background:var(--panel2)}
 .btn.wide{width:100%;justify-content:center}
