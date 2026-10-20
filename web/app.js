@@ -2055,7 +2055,8 @@ function initWS() {
         const m = JSON.parse(ev.data);
         if (m && m.type === "snapshot") renderSnapshot(m.data);
         else if (m && m.type === "tape") renderTape(m.data);
-        else renderSnapshot(m);
+        else if (m && m.type === "mode") applyModeInfo(m.data);
+        else if (m && !m.type) renderSnapshot(m);
       } catch (e) {}
     };
     ws.onclose = () => { _wsOk = false; setConn("down"); setTimeout(initWS, 3000); };
