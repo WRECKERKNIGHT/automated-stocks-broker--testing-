@@ -1382,24 +1382,32 @@ function renderMarketDrawer(info) {
 }
 
 async function switchMarket(mode) {
+  mode = mode === "forex" ? "forex" : "stocks";
   if (_marketInfo && _marketInfo.mode === mode) { closeDrawer(); return; }
   const ts = $("trainStatus");
-  if (ts) ts.textContent = `Switching to ${mode}…`;
+  if (ts) ts.textContent = `Switching to ${mode}\u2026 rebuilding universe (takes ~15s)`;
+  const cards = [...document.querySelectorAll("#marketCards .mcard")];
+  cards.forEach((c) => { c.classList.add("busy"); c.style.pointerEvents = "none"; });
   try {
-    const info = await fetch("/api/mode", {
+    const r = await fetch("/api/mode", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ mode }),
-    }).then((r) => r.json());
+    });
+    const info = await r.json();
+    if (!r.ok || info.ok === false) throw new Error(info.detail || "switch failed");
     _marketInfo = info;
     renderMarketDrawer(info);
-    updateMarketButton(info.mode);
+    applyMarketMode(info.mode);
     toast(`Market switched to ${String(info.mode).toUpperCase()}`);
-    try { loadChart(); } catch (e) {}
     try { pollStatus(); } catch (e) {}
     try { loadOverall(); } catch (e) {}
+    if (ts) ts.textContent = `${info.universe || 0} symbols \u00b7 bot ${info.running ? "running" : "stopped"}`;
   } catch (e) {
-    if (ts) ts.textContent = "Switch failed";
+    if (ts) ts.textContent = "Switch failed - try again";
     toast("Market switch failed");
+    try { loadMarketInfo(); } catch (e2) {}
+  } finally {
+    cards.forEach((c) => { c.classList.remove("busy"); c.style.pointerEvents = ""; });
   }
 }
 
