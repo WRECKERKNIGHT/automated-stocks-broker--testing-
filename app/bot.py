@@ -722,6 +722,7 @@ class TradingBot:
         day_stats = storage.daily_stats_series(limit=30)
         return {
             "mode": self.broker.mode,
+            "market": settings.market(),
             "bot": {
                 "running": self.running,
                 "market_open": self.market_open,
