@@ -379,3 +379,20 @@ each symbol's regime model, and every decision/trade/equity row carries a
 | --- | --- | --- |
 | `MARKET_MODE` | `stocks` | Active market: `stocks` or `forex` |
 | `FOREX_WATCHLIST` | 14 major/minor/metal pairs | FX universe in forex mode |
+
+### Switching markets at runtime
+
+Open **Markets** in the top bar and pick a card - no restart needed. A switch
+stops the running bot, swaps the broker, rebuilds that market's universe and
+restarts the bot if it was running (the rebuild is the slow part: several
+seconds for stocks, so the drawer shows a progress line and the cards go busy
+until it completes). The dashboard then follows along: the market label
+updates, a `mode` event is pushed over the WebSocket, and the chart symbol is
+remapped (`AAPL` <-> `EUR_USD`) so bars keep loading instead of 400-ing against
+the wrong market's data API.
+
+The active market is persisted in SQLite (`app_settings.market_mode`) and
+restored on boot, so once you switch from the UI that choice wins over
+`MARKET_MODE` in `.env`. Every switch logs phase timings as `[mode-switch]`
+lines in the server log - useful when diagnosing a slow swap (closing the
+Alpaca tape can dominate the first one).
