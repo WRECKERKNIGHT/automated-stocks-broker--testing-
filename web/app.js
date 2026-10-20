@@ -1327,7 +1327,34 @@ async function loadMarketInfo() {
     _marketInfo = await fetch("/api/mode").then((r) => r.json());
     renderMarketDrawer(_marketInfo);
     updateMarketButton(_marketInfo.mode);
+    applyMarketMode(_marketInfo.mode);
   } catch (e) { /* offline */ }
+}
+
+/* Sync the dashboard with a market (stocks | forex): header label plus a
+   symbol that actually belongs to that market, so the chart keeps loading. */
+function applyMarketMode(mode) {
+  const m = mode === "forex" ? "forex" : "stocks";
+  updateMarketButton(m);
+  const cur = String(state.symbol || "");
+  const belongs = m === "forex" ? cur.includes("_") : !!cur && !cur.includes("_");
+  if (!belongs) {
+    state.symbol = m === "forex" ? "EUR_USD" : "AAPL";
+    state.autoSym = null;
+    const si = $("symbolInput");
+    if (si) si.value = state.symbol;
+    try { loadChart(); } catch (e) {}
+  }
+}
+
+/* WebSocket push after a successful switch (also fired by the other client). */
+function applyModeInfo(info) {
+  if (!info || !info.mode) return;
+  const prev = _marketInfo && _marketInfo.mode;
+  _marketInfo = info;
+  renderMarketDrawer(info);
+  updateMarketButton(info.mode);
+  if (prev && prev !== info.mode) applyMarketMode(info.mode);
 }
 
 function renderMarketDrawer(info) {
