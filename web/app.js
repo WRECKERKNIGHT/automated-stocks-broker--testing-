@@ -572,12 +572,13 @@ function drawVP() {
 
 /* ----------------------------- snapshot ----------------------------- */
 function renderSnapshot(s) {
+  if (!s || s.type || !s.bot) return;   // ignore event envelopes (mode/tape/…), never render them as a snapshot
   state.snap = s;
   const a = s.account || {}, bot = s.bot || {};
   const badge = $("modeBadge");
   badge.textContent = s.mode;
   badge.className = "badge " + s.mode.toLowerCase();
-  updateMarketButton(s.mode === "FOREX" ? "forex" : "stocks");
+  updateMarketButton(s.market || (s.mode === "FOREX" ? "forex" : "stocks"));
   const simBadge = $("simBadge");
   if (simBadge) {
     const fake = s.mode !== "DEMO" && s.tape && s.tape.demo;
